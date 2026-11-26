@@ -10,6 +10,7 @@
   const $ = (selector) => document.querySelector(selector);
   const push = $('.push');
   const view = $('.ink');
+  const glowOnBeat = $('.beat');
   const backCanvas = $('.petals-back');
   const frontCanvas = $('.petals-front');
   const words = { label: $('.label'), line: $('.line'), small: $('.soon') };
@@ -69,7 +70,7 @@
       seal: true,
       hold: 6000,
       label: '',
-      line: 'Your final form is coming.',
+      line: 'The awakening begins soon.',
       small: 'Coming soon',
     },
     enso: {
@@ -82,7 +83,7 @@
       ink: 'red',
       hold: 4800,
       label: '<span class="k">円相</span>Ensō',
-      line: 'Every warrior has a final form.',
+      line: 'Train. Rest. Rise. Repeat.',
       small: 'Coming soon',
     },
     chikara: {
@@ -512,6 +513,22 @@
     for (let i = 0; i < count; i++) petals.push(newPetal(true));
   }
 
+  // On a beat, the petals jump away from the middle of the shot and lift a little
+  function burst(strength) {
+    const scale = Math.max(0.55, Math.min(innerWidth, innerHeight) / 900);
+    const cx = innerWidth / 2;
+    const cy = shot ? layout.y((shot.def.box.top + shot.def.box.bottom) / 2) : innerHeight / 2;
+    for (const p of petals) {
+      const dx = p.x - cx;
+      const dy = p.y - cy;
+      const d = Math.hypot(dx, dy) || 1;
+      const push = strength * 38 * scale * (0.35 + p.z);
+      p.wx += (dx / d) * push;
+      p.wy += (dy / d) * push - strength * 10 * scale;
+      p.spin += (Math.random() - 0.5) * strength * 0.8;
+    }
+  }
+
   // A gust as a shot lifts away
   function gust() {
     const scale = Math.max(0.55, Math.min(innerWidth, innerHeight) / 900);
@@ -602,6 +619,7 @@
   let last = 0;
   let opening = true; // the cold open, before the first shot
   let entered = false; // the teaser waits behind the gate until it starts
+  let beat = 0; // how hard the last beat still pulses, fading
 
   function setup() {
     layout = measure(shot ? shot.def : SHOTS.rsw);
@@ -670,6 +688,17 @@
     // The small print arrives with the first shot's words and stays
     if (shot?.phase === 'written' && clock - shot.writtenAt > 2600) root.classList.add('is-done');
     if (glow) glowLevel = Math.min(GLOW, glowLevel + dt * 0.4);
+
+    // The picture moves with the music: on every kick the red light behind the ink flares, the ink
+    // bumps and the petals jump; the drop and the taiko hits push harder
+    for (const kind of rswSound.beats()) {
+      const strength = { kick: 1, clap: 0.45, hit: 1.6, drop: 2.6 }[kind];
+      beat = Math.max(beat, Math.min(1.4, strength));
+      if (kind !== 'clap') burst(strength);
+    }
+    beat *= Math.exp(-dt * 7);
+    glowOnBeat.style.opacity = Math.min(1, beat * 0.75).toFixed(3);
+    view.style.scale = (1 + 0.009 * beat).toFixed(4);
 
     compose();
     drawPetals(dt);

@@ -20,6 +20,9 @@ window.rswSound = (() => {
   // Works on a live AudioContext or an OfflineAudioContext (the test renders one)
   function engine(ctx, destination) {
     const now = () => ctx.currentTime;
+    // The beat's big moments with their audio times, so the picture can move with them
+    const pulses = [];
+    const beat = (kind, at) => pulses.push({ kind, at }) > 256 && pulses.shift(); // nobody listening: keep it small
 
     // Mix: everything → muffle (a low-pass the teaser sweeps) → master → compressor → out.
     // The bus carries all but the drums, and ducks on every kick: the phonk pump.
@@ -306,8 +309,14 @@ window.rswSound = (() => {
       const s = step;
       const at = b * 16 + s;
       if (section === 'drop') {
-        if (KICKS[b].includes(s)) kick(t);
-        if (s === 8) clap(t);
+        if (KICKS[b].includes(s)) {
+          kick(t);
+          beat('kick', t);
+        }
+        if (s === 8) {
+          clap(t);
+          beat('clap', t);
+        }
         if (b === 3 && s === 15) clap(t, 0.22);
         const rolling = (b === 1 || b === 3) && s >= rollAt && s < rollAt + 4;
         if (s === rollAt && (b === 1 || b === 3)) roll(t);
@@ -386,6 +395,7 @@ window.rswSound = (() => {
           riff = makeRiff(); // a new riff every round
           droneTo(0, at);
           hiss(at, 'highpass', 4000, 0.22, 1.6, bus); // the crash
+          beat('drop', at);
           if (riser) {
             riser.g.gain.cancelScheduledValues(at);
             riser.g.gain.setTargetAtTime(0.0001, at, 0.02);
@@ -394,7 +404,9 @@ window.rswSound = (() => {
           }
         };
       } else if (kind === 'hit') {
-        taiko(next + (step % 2 ? STEP : 0), 0.8); // on the next 8th
+        const at = next + (step % 2 ? STEP : 0); // on the next 8th
+        taiko(at, 0.8);
+        beat('hit', at);
       } else if (kind === 'muffle') {
         muffle.frequency.setTargetAtTime(650, now(), 0.25);
       } else if (kind === 'open') {
@@ -407,7 +419,7 @@ window.rswSound = (() => {
       if (next < t) next = t;
     };
 
-    return { master, begin, scheduleUntil, cue, taiko, resync, swish: { ctx, noise, out: master } };
+    return { master, begin, scheduleUntil, cue, taiko, resync, pulses, swish: { ctx, noise, out: master } };
   }
 
   // ---------- Live: autoplay, the button, and the teaser's cues ----------
@@ -498,6 +510,18 @@ window.rswSound = (() => {
       return new Promise((resolve) => setTimeout(() => resolve(ctx?.state === 'running'), 60));
     },
     enable,
+    // The beats heard since the last call (kick, clap, drop, hit), for ink.js to move the picture with.
+    // Allows for the speakers' delay; beats older than a moment are dropped (the page was hidden).
+    beats() {
+      if (!on || !live) return [];
+      const heard = ctx.currentTime - (ctx.outputLatency || ctx.baseLatency || 0);
+      const due = [];
+      while (live.pulses.length && live.pulses[0].at <= heard) {
+        const pulse = live.pulses.shift();
+        if (heard - pulse.at < 0.25) due.push(pulse.kind);
+      }
+      return due;
+    },
     // Called by ink.js as the teaser moves on
     cue(kind, key) {
       const again = where.rounds > 0;
