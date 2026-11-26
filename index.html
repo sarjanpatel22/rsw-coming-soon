@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- Designed dark in its own colours: a phone's forced dark mode mustn't repaint it -->
+  <meta name="color-scheme" content="dark only">
+  <meta name="theme-color" content="#070606">
+  <title>RSW · Coming Soon</title>
+  <meta name="description" content="Real Saiyan Wellness. Your final form is coming.">
+  <meta property="og:title" content="RSW · Coming Soon">
+  <meta property="og:description" content="Real Saiyan Wellness. Your final form is coming.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <!-- Test link: keep search engines out. Remove when it goes on the real domain. -->
+  <meta name="robots" content="noindex">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Cormorant Garamond for the line, Manrope for the small print -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Manrope:wght@500;600&display=swap">
+  <!-- Only the letters the page uses: 近日公開 on the seal, 円相 力 一 on the shot labels; અમદાવાદ and શિસ્ત in Gujarati.
+       A letter missing here falls back to another font. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@800&text=%E8%BF%91%E6%97%A5%E5%85%AC%E9%96%8B%E5%86%86%E7%9B%B8%E5%8A%9B%E4%B8%80&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+Gujarati:wght@500&text=%E0%AA%85%E0%AA%AE%E0%AA%A6%E0%AA%BE%E0%AA%B5%E0%AA%B6%E0%AA%BF%E0%AA%B8%E0%AB%8D%E0%AA%A4&display=swap">
+  <!-- ?v= makes a phone fetch the new file after an update instead of a cached one: change it whenever these files change -->
+  <link rel="stylesheet" href="styles.css?v=4">
+  <script src="ink.js?v=4" defer></script>
+</head>
+<body>
+  <h1 class="sr-only">RSW, Real Saiyan Wellness: your final form is coming. Coming soon.</h1>
+
+  <main class="scene" aria-hidden="true">
+    <div class="push">
+      <div class="spot"></div>
+      <canvas class="petals-back"></canvas>
+      <canvas class="ink"></canvas>
+      <div class="seal"><span>近日</span><span>公開</span></div>
+      <!-- ink.js swaps these words for each shot -->
+      <div class="copy">
+        <p class="label"></p>
+        <p class="line">Your final form is coming.</p>
+        <p class="soon">Coming soon</p>
+      </div>
+      <p class="presents">Real Saiyan Wellness <em>presents</em></p>
+    </div>
+    <canvas class="petals-front"></canvas>
+    <div class="vignette"></div>
+    <div class="grain"></div>
+    <div class="bars"></div>
+  </main>
+
+  <header class="ui ui-top">
+    <p class="brand">Real Saiyan Wellness</p>
+    <button class="sound" type="button" aria-pressed="false">Sound <b>off</b></button>
+  </header>
+  <footer class="ui ui-bottom">
+    <p class="place">Ahmedabad · <span lang="gu">અમદાવાદ</span></p>
+    <button class="replay" type="button"><span aria-hidden="true">↻</span> Replay</button>
+  </footer>
+
+  <!-- Rough edges for the seal, like ink pressed from a stone stamp -->
+  <svg width="0" height="0" aria-hidden="true" style="position: absolute">
+    <filter id="stone"><feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="3.5"/></filter>
+  </svg>
+</body>
+</html>

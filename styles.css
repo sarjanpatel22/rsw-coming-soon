@@ -1,0 +1,506 @@
+/* ---------- RSW coming soon: the movie teaser ---------- */
+/* Black screen, brush ink, cherry blossoms, film grain and one line of type per shot. ink.js paints
+   and sets the scene's classes: is-open (the "presents" card), is-painting (the bars go), then for
+   each shot is-written (its words; is-seal adds the seal) and is-leaving (it fades out like smoke);
+   is-done shows the small print once. */
+
+/* ---------- Tokens ---------- */
+:root {
+  --black: #070606;
+  --cream: #f6ecdc;
+  --red: #d01a2c;
+  --muted: rgb(246 236 220 / 0.55);
+
+  --serif: "Cormorant Garamond", "Times New Roman", serif;
+  --sans: "Manrope", system-ui, sans-serif;
+  --mincho: "Shippori Mincho B1", "Yu Mincho", serif;
+  --gu: "Noto Serif Gujarati", var(--serif);
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --gutter: clamp(1rem, 4vw, 3rem);
+}
+
+/* ---------- Base ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--black);
+}
+
+body {
+  color: var(--cream);
+  font: 500 1rem/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+p {
+  margin: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--cream);
+  outline-offset: 4px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+[lang="gu"] {
+  font-family: var(--gu);
+}
+
+/* ---------- Scene ---------- */
+.scene {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.scene canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The camera: a slow push in over the whole teaser */
+.push {
+  position: absolute;
+  inset: 0;
+  animation: push 26s cubic-bezier(0.2, 0.6, 0.3, 1) both;
+}
+
+/* A dim red light behind the word, rising with the ink */
+.spot {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 46% 38% at 50% var(--spot-y, 42%), rgb(150 20 30 / 0.24), transparent 72%);
+  opacity: 0;
+  transition: opacity 3s ease;
+}
+
+.is-painting .spot {
+  opacity: 1;
+}
+
+/* Between shots the ink lifts away like smoke; the next shot starts on a clean, sharp canvas */
+.ink {
+  transition: opacity 1.2s ease, filter 1.2s ease, transform 1.3s var(--ease);
+}
+
+.is-leaving .ink {
+  opacity: 0;
+  filter: blur(14px);
+  transform: scale(1.03) translateY(-1.2%);
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 45%, transparent 50%, rgb(0 0 0 / 0.75) 100%);
+  pointer-events: none;
+}
+
+/* Film grain: a noise tile (made by ink.js) that jumps around eight times a second */
+.grain {
+  position: absolute;
+  inset: -50%;
+  opacity: 0.06;
+  background-image: var(--noise);
+  pointer-events: none;
+  animation: grain 0.9s steps(8) infinite;
+}
+
+/* Letterbox bars for the cold open; they slide away when the brush starts */
+.bars::before,
+.bars::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 2;
+  height: 12vh;
+  background: #000;
+  transition: transform 1.6s var(--ease);
+}
+
+.bars::before {
+  top: 0;
+}
+
+.bars::after {
+  bottom: 0;
+}
+
+.is-painting .bars::before {
+  transform: translateY(-100%);
+}
+
+.is-painting .bars::after {
+  transform: translateY(100%);
+}
+
+/* ---------- Cold open ---------- */
+.presents {
+  position: absolute;
+  top: var(--cy, 42%);
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 2 * var(--gutter));
+  font: 500 clamp(0.62rem, 1vw, 0.78rem) / 1.6 var(--sans);
+  letter-spacing: 0.55em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+}
+
+.presents em {
+  font: italic 500 1.5em/1 var(--serif);
+  letter-spacing: 0.08em;
+  text-transform: none;
+  color: var(--cream);
+}
+
+.is-open .presents {
+  animation: presents 2.1s ease both;
+}
+
+/* ---------- The seal: 近日公開, "coming soon", stamped beside the word ---------- */
+.seal {
+  position: absolute;
+  top: var(--seal-y, 50%);
+  left: var(--seal-x, 70%);
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: center;
+  gap: 0.06em;
+  width: var(--seal, 4rem);
+  height: var(--seal, 4rem);
+  padding: 0.12em;
+  border-radius: 4px;
+  background: var(--red);
+  color: var(--cream);
+  font: 800 calc(var(--seal, 4rem) * 0.36) / 1 var(--mincho);
+  box-shadow: inset 0 0 0 0.07em var(--red), inset 0 0 0 0.13em var(--cream);
+  filter: url(#stone);
+  opacity: 0;
+  transform: rotate(-2deg) scale(1.4);
+}
+
+.seal span {
+  display: grid;
+  place-items: center;
+  writing-mode: vertical-rl;
+}
+
+.is-seal.is-written .seal {
+  animation: seal 0.42s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+
+.is-leaving .seal {
+  opacity: 0 !important;
+  transition: opacity 0.9s ease;
+}
+
+/* ---------- The line ---------- */
+.copy {
+  position: absolute;
+  top: var(--copy-y, 70%);
+  left: 50%;
+  width: var(--copy-w, calc(100% - 2 * var(--gutter)));
+  text-align: center;
+  transform: translateX(-50%);
+  transition: opacity 1s ease, filter 1s ease;
+}
+
+/* The ensō holds its words inside the circle, without the rules either side */
+.copy-center .copy {
+  transform: translate(-50%, -50%);
+}
+
+.copy-center .soon::before,
+.copy-center .soon::after {
+  display: none;
+}
+
+.is-leaving .copy {
+  opacity: 0;
+  filter: blur(8px);
+}
+
+/* The shot's name: its kanji and what it means */
+.label {
+  margin-bottom: 0.9rem;
+  font: 600 0.64rem/1.4 var(--sans);
+  letter-spacing: 0.45em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0;
+}
+
+.label:empty {
+  display: none;
+}
+
+.label .k {
+  margin-right: 0.5em;
+  font: 800 1.45em/1 var(--mincho);
+  letter-spacing: 0.12em;
+  color: var(--cream);
+}
+
+.is-written .label {
+  animation: rise 1.4s var(--ease) 0.2s both;
+}
+
+.line {
+  font: 500 clamp(1rem, 2.1vw, 1.7rem) / 1.35 var(--serif);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--cream);
+  opacity: 0;
+}
+
+.is-written .line {
+  animation: track 2.4s var(--ease) 0.5s both;
+}
+
+.soon {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.1rem;
+  margin-top: 1.1rem;
+  font: 600 clamp(0.6rem, 0.9vw, 0.72rem) / 1 var(--sans);
+  letter-spacing: 0.6em;
+  text-transform: uppercase;
+  color: var(--red);
+  opacity: 0;
+}
+
+.soon [lang="gu"] {
+  font-size: 1.25em;
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
+.soon::before,
+.soon::after {
+  content: "";
+  width: clamp(1.5rem, 4vw, 3rem);
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.is-written .soon {
+  animation: rise 1.6s var(--ease) 1.5s both;
+}
+
+/* ---------- Small print round the edges ---------- */
+.ui {
+  position: fixed;
+  right: 0;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 var(--gutter);
+  font: 600 0.66rem/1 var(--sans);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+
+.ui-top {
+  top: max(1.4rem, env(safe-area-inset-top));
+}
+
+.ui-bottom {
+  bottom: max(1.4rem, env(safe-area-inset-bottom));
+}
+
+.is-done .ui {
+  opacity: 1;
+}
+
+.place [lang="gu"] {
+  font-size: 1.15em;
+  letter-spacing: 0.06em;
+}
+
+.replay,
+.sound {
+  padding: 0.6rem 0;
+  border: 0;
+  background: none;
+  color: var(--cream);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.replay:hover,
+.sound:hover {
+  opacity: 1;
+}
+
+.sound b {
+  font-weight: inherit;
+  color: var(--muted);
+}
+
+.sound[aria-pressed="true"] b {
+  color: var(--red);
+}
+
+/* Narrow phones: tighter tracking so the line stays on one row */
+@media (max-width: 30rem) {
+  .line {
+    letter-spacing: 0.18em;
+  }
+
+  .is-written .line {
+    animation-name: track-narrow;
+  }
+
+  .soon {
+    letter-spacing: 0.45em;
+  }
+
+  .ui {
+    letter-spacing: 0.22em;
+  }
+}
+
+/* ---------- Motion ---------- */
+@keyframes push {
+  from {
+    transform: scale(1.07);
+  }
+
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  12% { transform: translate(-5%, 3%); }
+  25% { transform: translate(4%, -6%); }
+  37% { transform: translate(-7%, -2%); }
+  50% { transform: translate(6%, 5%); }
+  62% { transform: translate(-3%, 7%); }
+  75% { transform: translate(7%, -4%); }
+  87% { transform: translate(-6%, -7%); }
+}
+
+@keyframes presents {
+  0% {
+    opacity: 0;
+    filter: blur(6px);
+  }
+
+  30%,
+  70% {
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+@keyframes seal {
+  0% {
+    opacity: 0;
+    transform: rotate(-2deg) scale(1.4);
+  }
+
+  100% {
+    opacity: 1;
+    transform: rotate(-2deg) scale(1);
+  }
+}
+
+/* The trailer title move: letters drift together out of a blur */
+@keyframes track {
+  from {
+    opacity: 0;
+    letter-spacing: 0.75em;
+    filter: blur(10px);
+  }
+
+  to {
+    opacity: 1;
+    letter-spacing: 0.3em;
+    filter: blur(0);
+  }
+}
+
+@keyframes track-narrow {
+  from {
+    opacity: 0;
+    letter-spacing: 0.5em;
+    filter: blur(10px);
+  }
+
+  to {
+    opacity: 1;
+    letter-spacing: 0.18em;
+    filter: blur(0);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Reduced motion: no camera move or grain; everything lands in its end state */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .grain {
+    animation: none;
+  }
+}
