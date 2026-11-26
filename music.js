@@ -1,15 +1,16 @@
 // ---------- RSW coming soon: the soundtrack ----------
 // A phonk beat with a koto in a Japanese scale, made in the browser: nothing is downloaded or
-// licensed, every sound is synthesised. 130 BPM: an 808 kick, a distorted 808 bass, a pitched
-// cowbell riff, hats with rolls and a half-time clap. The koto is a Karplus-Strong string playing
-// the In scale (E F A B C, miyako-bushi), and a taiko drum hits on every reveal.
+// licensed, every sound is synthesised. An 808 kick, a heavy 808 bass (a distorted growl over a
+// clean sub) that rides the kick, a pitched cowbell riff, hats with rolls and a half-time clap.
+// The koto is a Karplus-Strong string playing the In scale (E F A B C, miyako-bushi): phrases,
+// two-string chords, licks that answer the cowbell, tremolos and the sweeping glissando into every
+// drop; a taiko hits on every reveal. Each drop comes at a new tempo: 140, 150, 160, 130 BPM.
 // ink.js cues it: the koto alone while RSW is painted, a riser as the brush reaches the W, the drop
 // when RSW lands, and the mix muffling as each shot lifts away. Browsers only allow sound after a
 // tap, so it starts on the first one anywhere, or from the Sound button.
 window.rswSound = (() => {
   const AudioContext = window.AudioContext || window.webkitAudioContext;
-  const BPM = 130;
-  const STEP = 60 / BPM / 4; // a 16th note, s
+  const TEMPOS = [140, 150, 160, 130]; // BPM, a new one for every drop
   const E1 = 41.2; // Hz
   const IN = [0, 1, 5, 7, 8]; // the In scale, in semitones over E
 
@@ -20,6 +21,9 @@ window.rswSound = (() => {
   // Works on a live AudioContext or an OfflineAudioContext (the test renders one)
   function engine(ctx, destination) {
     const now = () => ctx.currentTime;
+    const api = { onTempo: null };
+    let sixteenth = 60 / 130 / 4; // s; the first koto intro runs at 130
+    let tempo = -1; // which of TEMPOS the last drop used
 
     // Mix: everything → muffle (a low-pass the teaser sweeps) → master → compressor → out.
     // The bus carries all but the drums, and ducks on every kick: the phonk pump.
@@ -97,46 +101,60 @@ window.rswSound = (() => {
     }
 
     // ---------- Instruments ----------
-    // 808 kick: a sine that drops from 150 to 48 Hz, plus a click so phones hear the hit
-    function kick(t, level = 0.78) {
+    // 808 kick: a short punch (the bass carries the boom), plus a click so phones hear the hit
+    function kick(t, level = 0.85) {
       const o = ctx.createOscillator();
-      o.frequency.setValueAtTime(150, t);
-      o.frequency.exponentialRampToValueAtTime(48, t + 0.09);
+      o.frequency.setValueAtTime(160, t);
+      o.frequency.exponentialRampToValueAtTime(50, t + 0.07);
       const g = ctx.createGain();
       g.gain.setValueAtTime(level, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.36);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
       o.connect(g).connect(drums);
       o.start(t);
-      o.stop(t + 0.4);
+      o.stop(t + 0.32);
       hiss(t, 'bandpass', 2400, 0.25 * level, 0.012);
       // The pump: everything else dips under the kick and swells back
       bus.gain.setValueAtTime(0.42, t);
       bus.gain.setTargetAtTime(1, t + 0.01, 0.1);
     }
 
-    // 808 bass: a long sine pushed through a hard saturator, so its overtones carry on small speakers
-    const bassIn = shaper(5);
-    const bassTone = ctx.createBiquadFilter();
-    bassTone.type = 'lowpass';
-    bassTone.frequency.value = 760;
-    const bassLevel = ctx.createGain();
-    bassLevel.gain.value = 0.3;
-    bassIn.connect(bassTone).connect(bassLevel).connect(bus);
-    function bass(t, degree, length, slideTo) {
+    // 808 bass, heavy: one sine split two ways. A hard-driven growl (its overtones carry on phone
+    // speakers) over a clean sub (the weight on headphones and big speakers).
+    const growl = shaper(9);
+    const growlTone = ctx.createBiquadFilter();
+    growlTone.type = 'lowpass';
+    growlTone.frequency.value = 1100;
+    const growlLevel = ctx.createGain();
+    growlLevel.gain.value = 0.42;
+    growl.connect(growlTone).connect(growlLevel).connect(bus);
+    const sub = ctx.createBiquadFilter();
+    sub.type = 'lowpass';
+    sub.frequency.value = 110;
+    const subLevel = ctx.createGain();
+    subLevel.gain.value = 0.75;
+    sub.connect(subLevel).connect(bus);
+    function bass(t, degree, octave, length, slideTo) {
       const o = ctx.createOscillator();
-      o.frequency.setValueAtTime(pitch(degree, 0), t);
-      if (slideTo !== undefined) o.frequency.exponentialRampToValueAtTime(pitch(slideTo, 0), t + length * 0.7);
+      o.frequency.setValueAtTime(pitch(degree, octave), t);
+      if (slideTo) {
+        // the 808 glide: a slide into the next bar's note at the tail
+        o.frequency.setValueAtTime(pitch(degree, octave), t + length * 0.6);
+        o.frequency.exponentialRampToValueAtTime(pitch(slideTo, 0), t + length * 0.95);
+      }
       const g = ctx.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.9, t + 0.008);
-      g.gain.setTargetAtTime(0.0001, t + length * 0.8, 0.05);
-      o.connect(g).connect(bassIn);
+      g.gain.exponentialRampToValueAtTime(1, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.7, t + length);
+      g.gain.setTargetAtTime(0.0001, t + length, 0.03);
+      o.connect(g);
+      g.connect(growl);
+      g.connect(sub);
       o.start(t);
-      o.stop(t + length + 0.4);
+      o.stop(t + length + 0.25);
     }
 
     // The phonk cowbell: two square waves a fifth-ish apart through a band-pass, like the 808's
-    function cowbell(t, frequency, level = 0.44) {
+    function cowbell(t, frequency, level) {
       const filter = ctx.createBiquadFilter();
       filter.type = 'bandpass';
       filter.frequency.value = frequency * 2.4;
@@ -163,7 +181,7 @@ window.rswSound = (() => {
 
     // A hat roll: six hits squeezed into a beat, getting louder
     function roll(t) {
-      for (let i = 0; i < 6; i++) hat(t + i * STEP * (2 / 3), false, 0.06 + i * 0.016);
+      for (let i = 0; i < 6; i++) hat(t + i * sixteenth * (2 / 3), false, 0.06 + i * 0.016);
     }
 
     // The clap: three quick slaps, a tail, a little body
@@ -207,9 +225,9 @@ window.rswSound = (() => {
       for (let i = length - 2000; i < length; i++) data[i] *= (length - i) / 2000; // no click at the end
       return { buffer, tune: frequency / (rate / period) };
     }
-    function koto(t, degree, level = 0.32, bend = 0) {
-      const key = degree;
-      if (!strings.has(key)) strings.set(key, string(pitch(degree, 3)));
+    function koto(t, degree, level = 0.5, bend = 0, octave = 3) {
+      const key = `${degree}/${octave}`;
+      if (!strings.has(key)) strings.set(key, string(pitch(degree, octave)));
       const { buffer, tune } = strings.get(key);
       const source = ctx.createBufferSource();
       source.buffer = buffer;
@@ -223,6 +241,19 @@ window.rswSound = (() => {
       source.start(t);
       source.stop(t + 1.6);
       hiss(t, 'highpass', 5000, level * 0.12, 0.008, bus); // the pick
+    }
+    // Two strings at once, a hair apart: the root and the note three steps up
+    function chord(t, degree) {
+      koto(t, degree, 0.42);
+      koto(t + 0.014, degree + 3, 0.36);
+    }
+    // The glissando (sararin): a hand sweeping across all the strings, up into a drop or down after a hit
+    function glissando(t, up) {
+      for (let i = 0; i < 10; i++) koto(t + i * 0.022, up ? i : 9 - i, 0.2 + 0.012 * i);
+    }
+    // Tremolo: one string picked fast, fading
+    function tremolo(t, degree, count) {
+      for (let i = 0; i < count; i++) koto(t + (i * sixteenth) / 2, degree, 0.4 - i * 0.03);
     }
 
     // Taiko: a deep drum, its skin and its boom
@@ -271,24 +302,36 @@ window.rswSound = (() => {
       return riff;
     }
 
-    // A koto phrase: four bars of 8ths with rests, wandering and coming home to E
+    // A koto phrase: four bars of 8ths with rests, wandering and coming home to E; some notes bend,
+    // a few become tremolos
     function makePhrase(density) {
       const phrase = new Array(64).fill(null);
       let degree = 5;
       for (let s = 0; s < 64; s += 2) {
         if (Math.random() > density) continue;
         degree = Math.max(0, Math.min(9, degree + [-2, -1, -1, 1, 1, 2][Math.floor(Math.random() * 6)]));
-        phrase[s] = { degree, bend: Math.random() < 0.12 ? 1 : 0 };
-        if (Math.random() < 0.08) phrase[s + 1] = { degree, soft: true }; // a quick repeat
+        phrase[s] = { degree, bend: Math.random() < 0.15 ? 1 : 0, trem: Math.random() < 0.08 };
+        if (Math.random() < 0.1) phrase[s + 1] = { degree, soft: true }; // a quick repeat
       }
       phrase[56] = { degree: 5, bend: 0 };
       return phrase;
     }
 
-    // Four bars: kicks per bar, the 808's notes (E E C B), and where the bass lands
+    // The koto's answer to the cowbell: in the second half of bars 2 and 4 the cowbell rests and
+    // the koto walks down from high to E
+    function makeLick() {
+      const lick = new Array(8).fill(null);
+      for (let i = 0, degree = 7 + Math.floor(Math.random() * 3); i < 8; i += 2) {
+        lick[i] = degree;
+        if (Math.random() < 0.3) lick[i + 1] = degree - 1; // a quick passing note
+        degree = Math.max(5, degree - (Math.random() < 0.7 ? 1 : 2));
+      }
+      return lick;
+    }
+
+    // Four bars: kicks per bar (the bass rides them) and the 808's notes, E E C B
     const KICKS = [[0, 6, 10], [0, 6, 10, 13], [0, 6, 10], [0, 3, 6, 10, 14]];
     const ROOTS = [0, 0, 4, 3];
-    const BASS = { 0: 6, 6: 4, 10: 6 }; // step: length in steps
 
     let section = 'intro'; // intro (koto alone), break (koto and ticking hats), drop (everything)
     let pending = null; // a section change waiting for the next beat
@@ -296,30 +339,44 @@ window.rswSound = (() => {
     let step = 0;
     let bar = 0;
     let riff = makeRiff();
-    let phrase = makePhrase(0.55);
-    let sparse = makePhrase(0.16);
+    let lick = makeLick();
+    let phrase = makePhrase(0.7);
     let rollAt = 12;
     let riser = null;
 
     function play(t) {
       const b = bar;
       const s = step;
-      const at = b * 16 + s;
       if (section === 'drop') {
-        if (KICKS[b].includes(s)) kick(t);
+        const kicks = KICKS[b];
+        const k = kicks.indexOf(s);
+        if (k >= 0) {
+          kick(t);
+          const last = k === kicks.length - 1;
+          const until = last ? 16 : kicks[k + 1];
+          const nextRoot = ROOTS[(b + 1) % 4];
+          const jump = last && b === 3 && Math.random() < 0.35; // the 808's octave jump
+          bass(t, ROOTS[b], jump ? 1 : 0, (until - s) * sixteenth, last && nextRoot !== ROOTS[b] ? nextRoot : null);
+        }
         if (s === 8) clap(t);
-        if (b === 3 && s === 15) clap(t, 0.22);
+        if (b === 3 && s === 15) clap(t, 0.25);
         const rolling = (b === 1 || b === 3) && s >= rollAt && s < rollAt + 4;
         if (s === rollAt && (b === 1 || b === 3)) roll(t);
         else if (!rolling && s % 2 === 0) hat(t, s === 14 && b % 2 === 0, s % 4 === 0 ? 0.13 : 0.09);
-        const note = riff[(b % 2) * 16 + s];
-        if (note !== null) cowbell(t, pitch(note, 4), s % 4 === 0 ? 0.46 : 0.36);
-        if (BASS[s]) bass(t, ROOTS[b], BASS[s] * STEP, s === 10 && ROOTS[(b + 1) % 4] !== ROOTS[b] ? ROOTS[(b + 1) % 4] : undefined);
-        const k = sparse[at];
-        if (k && !k.soft) koto(t, Math.min(9, k.degree + 2), 0.4, k.bend);
+        // Call and answer: the cowbell, then the koto in the back half of bars 2 and 4
+        if (b % 2 === 1 && s >= 8) {
+          const degree = lick[s - 8];
+          if (degree !== null && !(b === 3 && s >= 14)) koto(t, degree, 0.5, s === 12 && Math.random() < 0.5 ? 1 : 0);
+          if (b === 3 && s === 12) tremolo(t + sixteenth * 2, 5, 4);
+        } else {
+          const note = riff[(b % 2) * 16 + s];
+          if (note !== null) cowbell(t, pitch(note, 4), s % 4 === 0 ? 0.46 : 0.36);
+        }
+        if (s === 0 && (b === 0 || b === 2)) chord(t + 0.004, ROOTS[b]);
       } else {
-        const k = phrase[at];
-        if (k) koto(t, k.degree, k.soft ? 0.3 : 0.55, k.bend);
+        const k = phrase[b * 16 + s];
+        if (k?.trem) tremolo(t, k.degree, 5);
+        else if (k) koto(t, k.degree, k.soft ? 0.32 : 0.6, k.bend);
         if (section === 'break' && s % 2 === 0) hat(t, false, s % 4 === 0 ? 0.05 : 0.03);
       }
     }
@@ -332,13 +389,13 @@ window.rswSound = (() => {
           pending = null;
         }
         play(next);
-        next += STEP;
+        next += sixteenth;
         step = (step + 1) % 16;
         if (step === 0) {
           bar = (bar + 1) % 4;
           if (bar === 0) {
-            phrase = makePhrase(0.55);
-            sparse = makePhrase(0.16);
+            phrase = makePhrase(0.7);
+            lick = makeLick();
             rollAt = [12, 8, 12, 4][Math.floor(Math.random() * 4)];
           }
         }
@@ -351,16 +408,18 @@ window.rswSound = (() => {
       bar = 0;
       section = startSection;
       droneTo(section === 'drop' ? 0 : 0.05, atTime);
+      if (section !== 'drop') glissando(atTime, true); // the koto opens the scene
     }
 
     // The teaser's moments
     function cue(kind) {
-      const t = Math.max(now(), next - STEP); // about now, on the grid
+      const t = Math.max(now(), next - sixteenth); // about now, on the grid
       if (kind === 'break') {
         pending = (at) => {
           section = 'break';
-          phrase = makePhrase(0.55);
+          phrase = makePhrase(0.7);
           droneTo(0.05, at);
+          glissando(at, true);
         };
       } else if (kind === 'build') {
         // A riser: noise swept up through a band-pass until the drop
@@ -383,9 +442,13 @@ window.rswSound = (() => {
           section = 'drop';
           step = 0;
           bar = 0;
-          riff = makeRiff(); // a new riff every round
+          tempo = (tempo + 1) % TEMPOS.length; // every drop at a new tempo
+          sixteenth = 60 / TEMPOS[tempo] / 4;
+          api.onTempo?.(TEMPOS[tempo]);
+          riff = makeRiff(); // and a new riff
           droneTo(0, at);
           hiss(at, 'highpass', 4000, 0.22, 1.6, bus); // the crash
+          glissando(at, true);
           if (riser) {
             riser.g.gain.cancelScheduledValues(at);
             riser.g.gain.setTargetAtTime(0.0001, at, 0.02);
@@ -394,7 +457,9 @@ window.rswSound = (() => {
           }
         };
       } else if (kind === 'hit') {
-        taiko(next + (step % 2 ? STEP : 0), 0.8); // on the next 8th
+        const at = next + (step % 2 ? sixteenth : 0); // on the next 8th
+        taiko(at, 0.8);
+        if (!pending) glissando(at + 0.02, false); // a drop on its way brings its own glissando
       } else if (kind === 'muffle') {
         muffle.frequency.setTargetAtTime(650, now(), 0.25);
       } else if (kind === 'open') {
@@ -402,7 +467,7 @@ window.rswSound = (() => {
       }
     }
 
-    return { master, begin, scheduleUntil, cue, taiko, swish: { ctx, noise, out: master } };
+    return Object.assign(api, { master, begin, scheduleUntil, cue, noise });
   }
 
   // ---------- Live: the button, the first tap, and the teaser's cues ----------
@@ -411,6 +476,7 @@ window.rswSound = (() => {
   let live = null;
   let timer = 0;
   let on = false;
+  let bpm = 0; // the beat's tempo once it has dropped, shown on the button
   let swishGain = null;
   let swishFilter = null;
   // Where the teaser is, so sound switched on mid-way starts in the right section
@@ -419,7 +485,9 @@ window.rswSound = (() => {
   function show() {
     button.setAttribute('aria-pressed', String(on));
     button.classList.toggle('is-hint', !ctx);
-    button.innerHTML = !ctx ? '<span aria-hidden="true">♪</span> Tap for sound' : `Sound <b>${on ? 'on' : 'off'}</b>`;
+    button.innerHTML = !ctx
+      ? '<span aria-hidden="true">♪</span> Tap for sound'
+      : `Sound <b>${on ? 'on' : 'off'}</b>${on && bpm ? ` · ${bpm} BPM` : ''}`;
   }
 
   function enable() {
@@ -427,9 +495,13 @@ window.rswSound = (() => {
     if (!ctx) {
       ctx = new AudioContext();
       live = engine(ctx, ctx.destination);
+      live.onTempo = (tempo) => {
+        bpm = tempo;
+        show();
+      };
       // The brush swish: band-passed noise that follows the brush's speed
       const source = ctx.createBufferSource();
-      source.buffer = live.swish.noise;
+      source.buffer = live.noise;
       source.loop = true;
       swishFilter = ctx.createBiquadFilter();
       swishFilter.type = 'bandpass';
@@ -446,7 +518,7 @@ window.rswSound = (() => {
     const painting = where.opening || (where.key === 'rsw' && where.phase === 'paint');
     live.begin(t, painting ? (where.rounds ? 'break' : 'intro') : 'drop');
     live.master.gain.cancelScheduledValues(t);
-    live.master.gain.setTargetAtTime(0.85, t, 0.15);
+    live.master.gain.setTargetAtTime(0.78, t, 0.15); // headroom: the heavy 808 peaks near full scale
     clearInterval(timer);
     timer = setInterval(() => live.scheduleUntil(ctx.currentTime + 0.15), 25);
     show();
