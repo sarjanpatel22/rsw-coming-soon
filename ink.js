@@ -593,6 +593,7 @@
   let clock = 0; // ms since the teaser began
   let last = 0;
   let opening = true; // the cold open, before the first shot
+  let entered = false; // the teaser waits behind the gate until it starts
 
   function setup() {
     layout = measure(shot ? shot.def : SHOTS.rsw);
@@ -628,6 +629,11 @@
   function frame(now) {
     const dt = last ? Math.min((now - last) / 1000, 0.05) : 0.016;
     last = now;
+    if (!entered) {
+      drawPetals(dt); // blossoms drift behind the gate
+      requestAnimationFrame(frame);
+      return;
+    }
     clock += dt * 1000;
 
     if (opening) {
@@ -692,11 +698,34 @@
 
   $('.replay').addEventListener('click', begin);
 
+  // The gate: sound plays from the start, but most browsers keep a page silent until its first
+  // tap. So unless this one lets it play straight away, "Tap to enter" comes first, and that tap
+  // starts the teaser and the music together.
+  const gate = $('.gate');
+  function enter() {
+    entered = true;
+    root.classList.add('is-entered');
+    begin();
+  }
+  gate.addEventListener('click', () => {
+    rswSound.enable();
+    enter();
+  });
+
   // Fonts first, so the words don't swap typefaces mid-reveal
   (document.fonts?.ready ?? Promise.resolve()).then(() => {
     setup();
     seedPetals();
-    begin();
-    if (!still) requestAnimationFrame(frame);
+    if (still) drawPetals(0);
+    else requestAnimationFrame(frame);
+    rswSound.autoplay().then((allowed) => {
+      if (allowed) {
+        rswSound.enable();
+        enter();
+      } else {
+        gate.hidden = false;
+        gate.focus();
+      }
+    });
   });
 })();

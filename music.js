@@ -4,8 +4,8 @@
 // cowbell riff, hats with rolls and a half-time clap. The koto is a Karplus-Strong string playing
 // the In scale (E F A B C, miyako-bushi), and a taiko drum hits on every reveal.
 // ink.js cues it: the koto alone while RSW is painted, a riser as the brush reaches the W, the drop
-// when RSW lands, and the mix muffling as each shot lifts away. Browsers only allow sound after a
-// tap, so it starts on the first one anywhere, or from the Sound button.
+// when RSW lands, and the mix muffling as each shot lifts away. Sound is on from the start; the
+// Sound button mutes it.
 window.rswSound = (() => {
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   const BPM = 130;
@@ -405,7 +405,10 @@ window.rswSound = (() => {
     return { master, begin, scheduleUntil, cue, taiko, swish: { ctx, noise, out: master } };
   }
 
-  // ---------- Live: the button, the first tap, and the teaser's cues ----------
+  // ---------- Live: autoplay, the button, and the teaser's cues ----------
+  // Sound is on from the start. Most browsers keep a page silent until its first tap, so ink.js
+  // asks autoplay() first and, when the answer is no, opens with a "Tap to enter" screen whose tap
+  // starts the teaser and the music together. The button mutes and unmutes.
   const button = document.querySelector('.sound');
   let ctx = null;
   let live = null;
@@ -418,28 +421,31 @@ window.rswSound = (() => {
 
   function show() {
     button.setAttribute('aria-pressed', String(on));
-    button.classList.toggle('is-hint', !ctx);
-    button.innerHTML = !ctx ? '<span aria-hidden="true">♪</span> Tap for sound' : `Sound <b>${on ? 'on' : 'off'}</b>`;
+    button.innerHTML = `Sound <b>${on ? 'on' : 'off'}</b>`;
+  }
+
+  // The audio graph, made once. Made before any tap, a context starts suspended in most browsers.
+  function prepare() {
+    if (ctx || !AudioContext) return;
+    ctx = new AudioContext();
+    live = engine(ctx, ctx.destination);
+    // The brush swish: band-passed noise that follows the brush's speed
+    const source = ctx.createBufferSource();
+    source.buffer = live.swish.noise;
+    source.loop = true;
+    swishFilter = ctx.createBiquadFilter();
+    swishFilter.type = 'bandpass';
+    swishFilter.frequency.value = 1400;
+    swishFilter.Q.value = 0.7;
+    swishGain = ctx.createGain();
+    swishGain.gain.value = 0;
+    source.connect(swishFilter).connect(swishGain).connect(live.master);
+    source.start();
   }
 
   function enable() {
-    if (!AudioContext) return;
-    if (!ctx) {
-      ctx = new AudioContext();
-      live = engine(ctx, ctx.destination);
-      // The brush swish: band-passed noise that follows the brush's speed
-      const source = ctx.createBufferSource();
-      source.buffer = live.swish.noise;
-      source.loop = true;
-      swishFilter = ctx.createBiquadFilter();
-      swishFilter.type = 'bandpass';
-      swishFilter.frequency.value = 1400;
-      swishFilter.Q.value = 0.7;
-      swishGain = ctx.createGain();
-      swishGain.gain.value = 0;
-      source.connect(swishFilter).connect(swishGain).connect(live.master);
-      source.start();
-    }
+    prepare();
+    if (!ctx) return;
     ctx.resume?.();
     on = true;
     const t = ctx.currentTime + 0.05;
@@ -456,26 +462,20 @@ window.rswSound = (() => {
     on = false;
     clearInterval(timer);
     timer = 0;
-    live.master.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
+    live?.master.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
     show();
   }
 
   button.addEventListener('click', () => (on ? disable() : enable()));
-
-  // The first tap or key anywhere turns the sound on (the button handles its own clicks). Which
-  // events count as a tap varies by browser, so it listens to several until the audio is running.
-  const TAPS = ['pointerup', 'touchend', 'click', 'keydown'];
-  const first = (event) => {
-    if (event.target.closest?.('.sound')) return;
-    if (!ctx) enable();
-    ctx?.resume?.().then(() => {
-      if (ctx.state === 'running') for (const type of TAPS) removeEventListener(type, first, true);
-    });
-  };
-  for (const type of TAPS) addEventListener(type, first, true);
   show();
 
   return {
+    // Whether this browser lets the page play sound before any tap (most don't)
+    autoplay() {
+      prepare();
+      return new Promise((resolve) => setTimeout(() => resolve(ctx?.state === 'running'), 60));
+    },
+    enable,
     // Called by ink.js as the teaser moves on
     cue(kind, key) {
       const again = where.rounds > 0;
@@ -487,7 +487,7 @@ window.rswSound = (() => {
       if (!on) return;
       if (kind === 'open') {
         live.cue('open');
-        live.cue('break');
+        if (again) live.cue('break'); // a replay: back to the koto
       }
       if (kind === 'paint') {
         live.cue('open');

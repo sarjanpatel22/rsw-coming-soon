@@ -23,10 +23,10 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@800&text=%E8%BF%91%E6%97%A5%E5%85%AC%E9%96%8B%E5%86%86%E7%9B%B8%E5%8A%9B%E4%B8%80&display=swap">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+Gujarati:wght@500&text=%E0%AA%85%E0%AA%AE%E0%AA%A6%E0%AA%BE%E0%AA%B5%E0%AA%B6%E0%AA%BF%E0%AA%B8%E0%AB%8D%E0%AA%A4&display=swap">
   <!-- ?v= makes a phone fetch the new file after an update instead of a cached one: change it whenever these files change -->
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=8">
   <!-- The soundtrack first: ink.js cues it -->
-  <script src="music.js?v=7" defer></script>
-  <script src="ink.js?v=5" defer></script>
+  <script src="music.js?v=8" defer></script>
+  <script src="ink.js?v=8" defer></script>
 </head>
 <body>
   <h1 class="sr-only">RSW, Real Saiyan Wellness: your final form is coming. Coming soon.</h1>
@@ -53,12 +53,19 @@
 
   <header class="ui ui-top">
     <p class="brand">Real Saiyan Wellness</p>
-    <button class="sound is-hint" type="button" aria-pressed="false"><span aria-hidden="true">♪</span> Tap for sound</button>
+    <button class="sound" type="button" aria-pressed="false">Sound <b>off</b></button>
   </header>
   <footer class="ui ui-bottom">
     <p class="place">Ahmedabad · <span lang="gu">અમદાવાદ</span></p>
     <button class="replay" type="button"><span aria-hidden="true">↻</span> Replay</button>
   </footer>
+
+  <!-- Shown when the browser won't play sound before a tap: the tap starts the teaser and its music together -->
+  <button class="gate" type="button" hidden>
+    <span class="gate-mark">RSW</span>
+    <span class="gate-cta"><span><span class="touch">Tap</span><span class="mouse">Click</span> to enter</span></span>
+    <span class="gate-note"><span aria-hidden="true">♪</span> With sound</span>
+  </button>
 
   <!-- Rough edges for the seal, like ink pressed from a stone stamp -->
   <svg width="0" height="0" aria-hidden="true" style="position: absolute">
