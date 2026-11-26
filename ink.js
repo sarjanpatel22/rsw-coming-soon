@@ -2,7 +2,7 @@
 // A cold open ("Real Saiyan Wellness presents"), then a run of brush-painted shots that never ends
 // and never quite repeats: RSW with its seal, then an ensō, 力 and 一 in a new order each time
 // round, each with its own line. Every painting gets fresh brush hairs, so no two strokes come out
-// the same. Cherry blossoms drift through it all; sound is off until asked for. With reduced
+// the same. Cherry blossoms drift through it all; music.js scores it. With reduced
 // motion the finished RSW frame shows at once and stays.
 (() => {
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -348,6 +348,7 @@
       if (!stroke.painter) {
         stroke.painter = painter(stroke, shot.seed + i * 101, colour);
         if (i === 0) splatter(stroke.painter.first, 0, Math.PI * 2, 9, 0.12, stroke.painter.rand, colour); // the brush lands
+        if (shot.key === 'rsw' && i === 4) rswSound.cue('build'); // the brush reaches the W: the music rises
       }
       const t = Math.min(1, (time - stroke.start) / stroke.ms);
       moved += stroke.painter.advance(ease(t, stroke.flick) * stroke.painter.length + 0.01);
@@ -371,7 +372,7 @@
     return c;
   }
 
-  function beginShot(key, seed = Math.floor(Math.random() * 1e9)) {
+  function beginShot(key, seed = Math.floor(Math.random() * 1e9), repaint = false) {
     const def = SHOTS[key];
     shot = { key, def, seed, strokes: def.strokes.map((s) => ({ ...s, painter: null, done: false })), startAt: clock, phase: 'paint', writtenAt: 0, leaveAt: 0, sheenAt: Infinity };
     layout = measure(def);
@@ -388,6 +389,7 @@
     root.classList.toggle('copy-center', Boolean(def.center));
     void view.offsetWidth;
     view.style.transition = '';
+    if (!repaint) rswSound.cue('paint', key);
   }
 
   function written() {
@@ -396,7 +398,7 @@
     shot.sheenAt = clock + 1200;
     glow = makeGlow();
     root.classList.add('is-written');
-    sound.hit(shot.key === 'rsw' ? 1 : 0.55);
+    rswSound.cue('written', shot.key);
   }
 
   // The visible shot: the ink, a wet sheen sliding across it once, and its glow behind
@@ -575,84 +577,6 @@
     breeze.vy *= Math.exp(-dt * 6);
   }
 
-  // ---------- Sound, made with Web Audio (off until asked for) ----------
-  // A brush swish that follows the brush's speed, a soft wind, and a deep drum hit on each reveal
-  const sound = (() => {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const button = $('.sound');
-    let ctx, master, noise, swish, swishGain;
-    let on = false;
-
-    function start() {
-      ctx = new AudioContext();
-      master = ctx.createGain();
-      master.gain.value = 0;
-      master.connect(ctx.destination);
-      noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-      const data = noise.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-      const loop = (filterType, frequency, gain) => {
-        const source = ctx.createBufferSource();
-        source.buffer = noise;
-        source.loop = true;
-        const filter = ctx.createBiquadFilter();
-        filter.type = filterType;
-        filter.frequency.value = frequency;
-        const level = ctx.createGain();
-        level.gain.value = gain;
-        source.connect(filter).connect(level).connect(master);
-        source.start();
-        return [filter, level];
-      };
-      [swish, swishGain] = loop('bandpass', 1400, 0);
-      swish.Q.value = 0.7;
-      loop('lowpass', 380, 0.035); // wind
-    }
-
-    function brush(speed) {
-      if (!ctx) return;
-      const t = ctx.currentTime;
-      swishGain.gain.setTargetAtTime(Math.min(1, speed) * 0.32, t, 0.03);
-      swish.frequency.setTargetAtTime(900 + 1600 * Math.min(1, speed), t, 0.05);
-    }
-
-    function hit(strength) {
-      if (!ctx || !on) return;
-      const t = ctx.currentTime;
-      const drum = ctx.createOscillator();
-      drum.frequency.setValueAtTime(95, t);
-      drum.frequency.exponentialRampToValueAtTime(42, t + 0.5);
-      const body = ctx.createGain();
-      body.gain.setValueAtTime(0.9 * strength, t);
-      body.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
-      drum.connect(body).connect(master);
-      drum.start(t);
-      drum.stop(t + 1.5);
-      const skin = ctx.createBufferSource();
-      skin.buffer = noise;
-      const thud = ctx.createBiquadFilter();
-      thud.type = 'lowpass';
-      thud.frequency.value = 260;
-      const skinGain = ctx.createGain();
-      skinGain.gain.setValueAtTime(0.5 * strength, t);
-      skinGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
-      skin.connect(thud).connect(skinGain).connect(master);
-      skin.start(t, Math.random(), 0.3);
-    }
-
-    button.addEventListener('click', () => {
-      if (!AudioContext) return;
-      on = !on;
-      if (!ctx) start();
-      ctx.resume?.();
-      master.gain.setTargetAtTime(on ? 0.9 : 0, ctx.currentTime, 0.08);
-      button.setAttribute('aria-pressed', String(on));
-      button.querySelector('b').textContent = on ? 'on' : 'off';
-    });
-
-    return { brush, hit };
-  })();
-
   // ---------- Film grain ----------
   const tile = document.createElement('canvas');
   tile.width = tile.height = 180;
@@ -687,6 +611,7 @@
     queue = [];
     shot = null;
     opening = !still;
+    rswSound.cue('open');
     inkCtx.clearRect(0, 0, layout.w, layout.h);
     glow = null;
     if (still) {
@@ -714,15 +639,16 @@
       }
     } else if (shot.phase === 'paint') {
       const moved = paintTo(clock - shot.startAt);
-      sound.brush(moved / Math.max(dt, 0.008) / (layout.brush * 14));
+      rswSound.brush(moved / Math.max(dt, 0.008) / (layout.brush * 14));
       if (shot.strokes.every((stroke) => stroke.done)) {
-        sound.brush(0);
+        rswSound.brush(0);
         written();
       }
     } else if (shot.phase === 'written' && clock - shot.writtenAt > shot.def.hold) {
       shot.phase = 'leaving';
       shot.leaveAt = clock;
       root.classList.add('is-leaving');
+      rswSound.cue('leave', shot.key);
       gust();
     } else if (shot.phase === 'leaving' && clock - shot.leaveAt > LEAVE) {
       beginShot(nextKey());
@@ -747,7 +673,7 @@
         const { key, seed, phase } = shot;
         const keep = { writtenAt: shot.writtenAt, leaveAt: shot.leaveAt, sheenAt: shot.sheenAt };
         const wasLeaving = phase === 'leaving';
-        beginShot(key, seed);
+        beginShot(key, seed, true);
         if (phase !== 'paint') {
           paintTo(Infinity);
           Object.assign(shot, keep, { phase });

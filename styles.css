@@ -329,8 +329,6 @@ p {
   letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--muted);
-  opacity: 0;
-  transition: opacity 1.6s ease;
 }
 
 .ui-top {
@@ -341,8 +339,16 @@ p {
   bottom: max(1.4rem, env(safe-area-inset-bottom));
 }
 
-.is-done .ui {
-  opacity: 1;
+/* The small print fades in once the first shot is up; the sound hint shows from the start */
+.ui > * {
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+
+.is-done .ui > *,
+.ui > .sound.is-hint,
+.ui > .sound[aria-pressed="true"] {
+  opacity: 0.85;
 }
 
 .place [lang="gu"] {
@@ -360,12 +366,10 @@ p {
   letter-spacing: inherit;
   text-transform: inherit;
   cursor: pointer;
-  opacity: 0.8;
-  transition: opacity 0.2s;
 }
 
-.replay:hover,
-.sound:hover {
+.is-done .ui > .replay:hover,
+.ui > .sound:hover {
   opacity: 1;
 }
 
@@ -376,6 +380,11 @@ p {
 
 .sound[aria-pressed="true"] b {
   color: var(--red);
+}
+
+/* Until the first tap, the sound button breathes to say it's there */
+.sound.is-hint {
+  animation: breathe 2.4s ease-in-out infinite;
 }
 
 /* Narrow phones: tighter tracking so the line stays on one row */
@@ -461,6 +470,12 @@ p {
     opacity: 1;
     letter-spacing: 0.3em;
     filter: blur(0);
+  }
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.4;
   }
 }
 
