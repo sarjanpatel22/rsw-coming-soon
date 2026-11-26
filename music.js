@@ -402,7 +402,12 @@ window.rswSound = (() => {
       }
     }
 
-    return { master, begin, scheduleUntil, cue, taiko, swish: { ctx, noise, out: master } };
+    // After the page was hidden: skip the missed 16ths instead of playing them all at once
+    const resync = (t) => {
+      if (next < t) next = t;
+    };
+
+    return { master, begin, scheduleUntil, cue, taiko, resync, swish: { ctx, noise, out: master } };
   }
 
   // ---------- Live: autoplay, the button, and the teaser's cues ----------
@@ -446,6 +451,8 @@ window.rswSound = (() => {
   function enable() {
     prepare();
     if (!ctx) return;
+    // iPhones mute web audio on the silent switch unless the page says it plays media
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';
     ctx.resume?.();
     on = true;
     const t = ctx.currentTime + 0.05;
@@ -468,6 +475,21 @@ window.rswSound = (() => {
 
   button.addEventListener('click', () => (on ? disable() : enable()));
   show();
+
+  // Quiet while the page is hidden (another app, a locked phone); back in time when it returns
+  document.addEventListener('visibilitychange', () => {
+    if (!ctx || !on) return;
+    if (document.hidden) {
+      clearInterval(timer);
+      ctx.suspend?.();
+    } else {
+      ctx.resume?.().then(() => {
+        live.resync(ctx.currentTime + 0.05);
+        clearInterval(timer);
+        timer = setInterval(() => live.scheduleUntil(ctx.currentTime + 0.15), 25);
+      });
+    }
+  });
 
   return {
     // Whether this browser lets the page play sound before any tap (most don't)

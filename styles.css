@@ -6,6 +6,7 @@
 
 /* ---------- Tokens ---------- */
 :root {
+  color-scheme: dark only;
   --black: #070606;
   --cream: #f6ecdc;
   --red: #d01a2c;
@@ -32,7 +33,10 @@ body {
   height: 100%;
   margin: 0;
   overflow: hidden;
+  overscroll-behavior: none; /* no bounce or pull-to-refresh on phones */
   background: var(--black);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -69,6 +73,9 @@ p {
   position: fixed;
   inset: 0;
   overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .scene canvas {
@@ -324,7 +331,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0 var(--gutter);
+  padding: 0 max(var(--gutter), env(safe-area-inset-right)) 0 max(var(--gutter), env(safe-area-inset-left));
   font: 600 0.66rem/1 var(--sans);
   letter-spacing: 0.32em;
   text-transform: uppercase;
@@ -357,7 +364,10 @@ p {
 
 .replay,
 .sound {
-  padding: 0.6rem 0;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.25rem;
+  margin: 0 -0.25rem;
   border: 0;
   background: none;
   color: var(--cream);
@@ -365,6 +375,8 @@ p {
   letter-spacing: inherit;
   text-transform: inherit;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .is-done .ui > .replay:hover,
@@ -395,6 +407,8 @@ p {
   color: var(--cream);
   font: inherit;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: opacity 0.8s ease, visibility 0s 0.8s;
 }
 
@@ -467,6 +481,71 @@ p {
 
   .ui {
     letter-spacing: 0.22em;
+  }
+}
+
+/* The smallest phones (a folded Galaxy Fold, an old iPhone SE): the big RSW is the brand, so the
+   small one goes, and the sound button keeps its corner */
+@media (max-width: 22.5rem) {
+  .brand {
+    display: none;
+  }
+
+  .sound {
+    margin-left: auto;
+  }
+
+  .ui {
+    letter-spacing: 0.16em;
+  }
+
+  .gate-cta::before,
+  .gate-cta::after {
+    width: 1.5rem;
+  }
+
+  /* No rules beside "coming soon", so longer lines like "Lab-tested · Every batch" stay on one row */
+  .soon::before,
+  .soon::after {
+    display: none;
+  }
+
+  .soon {
+    letter-spacing: 0.3em;
+  }
+}
+
+/* Phones on their side: no shot name, a smaller line, so the words fit under the art */
+@media (max-height: 32.5rem) and (min-aspect-ratio: 1/1) {
+  .label {
+    display: none;
+  }
+
+  .line {
+    font-size: 0.95rem;
+  }
+
+  .soon {
+    margin-top: 0.6rem;
+  }
+
+  /* Inside a small ensō: smaller, tighter words, so they don't stack one per row */
+  .copy-center .line {
+    font-size: 0.82rem;
+    letter-spacing: 0.12em;
+  }
+
+  .copy-center .soon {
+    margin-top: 0.4rem;
+    letter-spacing: 0.3em;
+  }
+
+  .ui-top {
+    top: max(0.9rem, env(safe-area-inset-top));
+  }
+
+  .ui-bottom {
+    bottom: max(0.9rem, env(safe-area-inset-bottom));
   }
 }
 

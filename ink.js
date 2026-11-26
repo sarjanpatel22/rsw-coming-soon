@@ -138,12 +138,20 @@
   let layout, viewCtx, inkCtx, backCtx, frontCtx;
   const set = (name, value) => root.style.setProperty(name, value);
 
+  // Lays a shot out on this screen. On a short screen (a phone on its side) the art shrinks and
+  // moves up until it and its words fit between the small print at the top and bottom.
+  const EDGE = 56; // px kept clear for the small print, top and bottom
   function measure(shot) {
     const w = innerWidth;
     const h = innerHeight;
-    const H = shot.size(w, h); // one unit, CSS px
-    const cy = h * shot.middle(w, h);
     const { box } = shot;
+    const words = shot.center ? 0 : h < 520 ? 64 : 96; // the words' height under the art
+    const tall = (unit) => (box.bottom - box.top + shot.brush) * unit; // the art's height, brush included
+    const below = (unit) => shot.brush * unit * (shot.gap ?? 1) + words;
+    let H = shot.size(w, h); // one unit, CSS px
+    while (H > 40 && 2 * EDGE + tall(H) + below(H) > h) H *= 0.95;
+    let cy = h * shot.middle(w, h);
+    if (!shot.center) cy = Math.max(EDGE + tall(H) / 2, Math.min(cy, h - EDGE - below(H) - tall(H) / 2));
     const x = (u) => w / 2 + (u - (box.left + box.right) / 2) * H;
     const y = (v) => cy + (v - (box.top + box.bottom) / 2) * H;
     const brush = shot.brush * H;
@@ -166,7 +174,7 @@
       set('--seal-y', `${sealY.toFixed(1)}px`);
     }
     set('--copy-y', `${(shot.center ? cy : copyY).toFixed(1)}px`);
-    if (shot.center) set('--copy-w', `${(H * 0.7).toFixed(1)}px`);
+    if (shot.center) set('--copy-w', `${(H * (h < 520 ? 0.64 : 0.74)).toFixed(1)}px`); // narrower in a small circle, clear of the ink
     else root.style.removeProperty('--copy-w');
     return { w, h, H, x, y, brush, dpr: Math.min(devicePixelRatio || 1, 2) };
   }
