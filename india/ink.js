@@ -1,9 +1,9 @@
 // ---------- RSW coming soon, India: the movie teaser ----------
-// The same teaser as the main page, made Indian with Gujarat's own art: a cold open, then a run of
-// brush-painted shots that never quite repeats. RSW in sindoor red, then Warli figures training, a
-// patang with its manja and a gada in brass gold, in a new order each time round. The Warli figures
-// are drawn into a mask and painted in by broad brush passes; the rest is brush strokes. A sky of
-// Uttarayan kites bobs through it all; music.js scores it. With reduced motion the finished RSW frame
+// The same teaser as the main page, made Indian (and kept clear of anything religious): a cold open,
+// then a run of brush-painted shots that never quite repeats. RSW in red, then Warli figures
+// training, a bandhani pattern of dots and a cricket ball, in a new order each time round. The Warli
+// figures are drawn into a mask and painted in by broad brush passes; the rest is brush strokes.
+// Chalk dust floats through it all; music.js scores it. With reduced motion the finished RSW frame
 // shows at once and stays.
 (() => {
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -48,41 +48,43 @@
     { ms: 320, flick: true, at: 1.84, pts: [[0.62, 0.99, 0.2], [0.72, 0.66, 0.45], [0.83, 0.3, 0.42], [0.92, 0.05, 0.3], [0.96, -0.04, 0.06]] },
   ].map(({ at = 0, pts, ...stroke }) => ({ ...stroke, pts: pts.map(([x, y, p]) => [x + at, y, p]) }));
 
-  // The patang (kite): a square of paper on a bamboo spine and bow, a little tail, and the manja, the
-  // string, running away to the flyer
-  const PATANG = [
-    { ms: 260, pts: [[0.16, 0.4, 0.6], [0.33, 0.23, 0.95], [0.5, 0.06, 0.7]] },
-    { ms: 260, pts: [[0.5, 0.06, 0.6], [0.67, 0.23, 0.95], [0.84, 0.4, 0.7]] },
-    { ms: 260, pts: [[0.84, 0.4, 0.6], [0.67, 0.57, 0.95], [0.5, 0.74, 0.7]] },
-    { ms: 260, pts: [[0.5, 0.74, 0.6], [0.33, 0.57, 0.95], [0.16, 0.4, 0.7]] },
-    { ms: 300, pts: [[0.5, 0.09, 0.4], [0.5, 0.4, 0.75], [0.5, 0.72, 0.4]] }, // the spine
-    { ms: 320, pts: [[0.17, 0.4, 0.3], [0.33, 0.3, 0.7], [0.5, 0.27, 0.75], [0.67, 0.3, 0.7], [0.83, 0.4, 0.3]] }, // the bow
-    { ms: 160, pts: [[0.5, 0.74, 0.5], [0.45, 0.8, 0.8], [0.42, 0.87, 0.5]] }, // the tail
-    { ms: 160, pts: [[0.42, 0.87, 0.5], [0.5, 0.86, 0.8], [0.58, 0.87, 0.5]] },
-    { ms: 160, pts: [[0.58, 0.87, 0.5], [0.55, 0.8, 0.8], [0.5, 0.74, 0.5]] },
-    { ms: 700, ink: 'rice', pts: [[0.5, 0.42, 0.25], [0.66, 0.55, 0.3], [0.86, 0.68, 0.3], [1.12, 0.82, 0.25], [1.5, 0.98, 0.15]] }, // the manja
-  ];
+  // Bandhani, Gujarat's tie-dye: rows of small dots dabbed into a diamond, white and turmeric
+  // yellow round a red heart
+  const BANDHANI = (() => {
+    const strokes = [];
+    const rows = [1, 3, 5, 7, 9, 7, 5, 3, 1];
+    rows.forEach((count, row) => {
+      const y = 0.2 + row * 0.075;
+      for (let i = 0; i < count; i++) {
+        const x = 0.5 + (i - (count - 1) / 2) * 0.075;
+        const ring = Math.max(Math.abs(row - 4), Math.abs(x - 0.5) / 0.075); // how far out from the middle
+        const ink = ring === 0 ? 'red' : ring % 2 ? 'haldi' : 'rice';
+        // a tiny circle the brush goes round, so the dab comes out round rather than a teardrop
+        const pts = Array.from({ length: 11 }, (_, k) => [x + 0.006 * Math.cos((k * Math.PI) / 4), y + 0.006 * Math.sin((k * Math.PI) / 4), 1]); // round once and a bit, so it closes
+        strokes.push({ ms: 45, gap: 15, ink, load: 3, pts });
+      }
+    });
+    return strokes;
+  })();
 
-  // The gada, the mace of the akhada: a heavy head, a little taller than wide, brushed in rings one
-  // inside the other until it's solid, a spire tapering to a point on top, and a handle with a knob
-  const GADA = (() => {
+  // A cricket ball: a red leather ball brushed in rings until it's solid, then its white seam and
+  // stitches in a thinner brush
+  const BALL = (() => {
     const ring = (r, from, ms) => ({
       ms,
       load: 1.4,
       pts: Array.from({ length: 13 }, (_, k) => {
         const a = ((from - (370 * k) / 12) * Math.PI) / 180;
-        return [0.5 + r * Math.cos(a), 0.36 - r * 1.12 * Math.sin(a), k === 0 ? 0.6 : k === 12 ? 0.4 : 0.95];
+        return [0.5 + r * Math.cos(a), 0.5 - r * Math.sin(a), k === 0 ? 0.6 : k === 12 ? 0.4 : 0.95];
       }),
     });
-    return [
-      ring(0.2, 110, 800),
-      ring(0.15, 200, 600),
-      ring(0.1, 290, 450),
-      ring(0.05, 20, 300),
-      { ms: 220, pts: [[0.5, 0.17, 0.8], [0.5, 0.1, 0.6], [0.5, 0.03, 0.15]] }, // the spire
-      { ms: 420, pts: [[0.5, 0.58, 0.7], [0.5, 0.76, 0.85], [0.5, 0.94, 0.8]] }, // the handle
-      { ms: 160, flick: true, pts: [[0.44, 0.95, 0.6], [0.5, 0.96, 0.9], [0.56, 0.95, 0.4]] }, // the knob
-    ];
+    const seam = (dx, dy) => ({ ms: 380, ink: 'rice', width: 0.016, load: 5, pts: [[0.27 + dx, 0.34 + dy, 0.5], [0.42 + dx, 0.5 + dy, 0.9], [0.58 + dx, 0.6 + dy, 0.9], [0.73 + dx, 0.66 + dy, 0.5]] }); // curving round the ball
+    const stitches = [0.32, 0.42, 0.52, 0.62].map((t) => {
+      const x = 0.25 + t * 0.62;
+      const y = 0.34 + t * 0.5;
+      return { ms: 40, gap: 25, ink: 'rice', width: 0.014, load: 5, pts: [[x - 0.012, y + 0.018, 0.6], [x, y, 1], [x + 0.012, y - 0.018, 0.6]] };
+    });
+    return [ring(0.2, 110, 900), ring(0.08, 250, 500), seam(0, 0), seam(0.03, -0.04), ...stitches];
   })();
 
   // Warli, the tribal painting of the Gujarat and Maharashtra hills: figures of two triangles, a round
@@ -162,7 +164,7 @@
       middle: (w, h) => (w < h ? 0.4 : 0.42),
       brush: 0.2,
       gap: 1.6,
-      ink: 'sindoor',
+      ink: 'red',
       hold: 6000,
       label: '',
       line: 'The awakening begins soon.',
@@ -182,31 +184,32 @@
       line: 'Find your tribe.',
       small: 'Warriors · Community',
     },
-    patang: {
-      strokes: PATANG,
-      box: { left: 0.14, right: 0.86, top: 0.04, bottom: 0.9 },
-      size: (w, h) => Math.min(h * 0.6, w * 0.7),
+    bandhani: {
+      strokes: BANDHANI,
+      box: { left: 0.18, right: 0.82, top: 0.18, bottom: 0.82 },
+      size: (w, h) => Math.min(h * 0.6, w * 0.8),
       middle: () => 0.42,
-      brush: 0.035,
-      gap: 2.2,
-      ink: 'sindoor',
+      brush: 0.03, // small dots with room between them, like the real cloth
+      gap: 1.5,
+      ink: 'rice',
       hold: 4500,
-      label: '<span class="k" lang="gu">પતંગ</span>Patang',
-      line: 'Fly higher than yesterday.',
-      small: 'Uttarayan · <span lang="gu">અમદાવાદ</span>',
+      label: '<span class="k" lang="gu">બાંધણી</span>Bandhani',
+      line: 'Tied to our roots.',
+      small: 'Made in Amdavad',
     },
-    gada: {
-      strokes: GADA,
-      box: { left: 0.28, right: 0.72, top: 0.04, bottom: 0.97 },
-      size: (w, h) => Math.min(h * 0.55, w * 0.6),
+    ball: {
+      strokes: BALL,
+      box: { left: 0.2, right: 0.8, top: 0.2, bottom: 0.8 },
+      size: (w, h) => Math.min(h * 0.55, w * 0.7),
       middle: () => 0.42,
-      brush: 0.075,
-      gap: 1.2,
-      ink: 'haldi',
+      brush: 0.2, // two wide sweeps fill the ball
+      noSplash: true, // a splash on top would make it an apple
+      gap: 1,
+      ink: 'red',
       hold: 4500,
-      label: '<span class="k" lang="gu">ગદા</span>Gada',
-      line: 'Strength, the old way.',
-      small: 'Lab-tested · Every batch',
+      label: '<span class="k" lang="gu">દડો</span>The ball',
+      line: 'Built for the long innings.',
+      small: 'Stamina · Every day',
     },
   };
   // When each stroke starts: the brush lifts for a moment between strokes
@@ -218,9 +221,9 @@
     }
   }
 
-  // Hair colours: sindoor red, haldi (turmeric) gold, rice-paste white
+  // Hair colours: chilli red, haldi (turmeric) gold, rice-paste white
   const INKS = {
-    sindoor: (shade) => `rgb(${Math.round(lerp(150, 225, shade))} ${Math.round(lerp(10, 30, shade))} ${Math.round(lerp(22, 40, shade))})`,
+    red: (shade) => `rgb(${Math.round(lerp(150, 225, shade))} ${Math.round(lerp(10, 30, shade))} ${Math.round(lerp(22, 40, shade))})`,
     haldi: (shade) => `rgb(${Math.round(lerp(196, 255, shade))} ${Math.round(lerp(128, 196, shade))} ${Math.round(lerp(8, 48, shade))})`,
     rice: (shade) => `rgb(${Math.round(lerp(214, 250, shade))} ${Math.round(lerp(204, 244, shade))} ${Math.round(lerp(186, 230, shade))})`,
   };
@@ -318,7 +321,7 @@
   // skips, which leaves the dry-brush streaks of real calligraphy.
   function painter(stroke, seed, colour, target = inkCtx) {
     const rand = random(seed);
-    const width = layout.brush;
+    const width = stroke.width ? stroke.width * layout.H : layout.brush; // a stroke can bring a thinner brush
     const { pts, length } = sample(stroke.pts);
     const count = Math.round(Math.min(150, Math.max(36, width / 1.1)));
     const hurry = length / stroke.ms / (width / 52); // about 1 for a steady stroke, more when it's quick
@@ -418,7 +421,7 @@
   // RSW, then the others in a new order each time round
   function nextKey() {
     if (!queue.length) {
-      const rest = ['warli', 'patang', 'gada'];
+      const rest = ['warli', 'bandhani', 'ball'];
       for (let i = rest.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [rest[i], rest[j]] = [rest[j], rest[i]];
@@ -439,7 +442,7 @@
       const colour = INKS[stroke.ink ?? shot.def.ink];
       if (!stroke.painter) {
         stroke.painter = painter(stroke, shot.seed + i * 101, colour, masked ? revealCtx : inkCtx);
-        if (i === 0 && !masked) splatter(stroke.painter.first, 0, Math.PI * 2, 9, 0.12, stroke.painter.rand, colour); // the brush lands
+        if (i === 0 && !masked && !shot.def.noSplash) splatter(stroke.painter.first, 0, Math.PI * 2, 9, 0.12, stroke.painter.rand, colour); // the brush lands
         if (shot.key === 'rsw' && i === 4) rswSound.cue('build'); // the brush reaches the W: the music rises
       }
       const t = Math.min(1, (time - stroke.start) / stroke.ms);
@@ -534,103 +537,73 @@
     g.globalCompositeOperation = 'source-over';
   }
 
-  // ---------- Kites ----------
-  // Uttarayan over Amdavad: a sky of paper kites at every distance, each in two colours with its
-  // bamboo spine and bow and a little tail, bobbing on its string. Each look is drawn once at four
-  // focus depths, so drawing many is cheap.
-  const PAPERS = [['#d7263d', '#f4d35e'], ['#e0218a', '#fdf0d5'], ['#f77f00', '#2a9d8f'], ['#3a86ff', '#ffbe0b'], ['#fdf0d5', '#c1121f'], ['#06a77d', '#f77f00']];
-  const sprites = PAPERS.map(([left, right]) =>
-    [0, 1.2, 3.5, 9].map((blur) => {
-      const pad = Math.ceil(blur * 2.5) + 2;
-      const c = document.createElement('canvas');
-      c.width = c.height = 64 + pad * 2;
-      const g = c.getContext('2d');
-      if (blur) g.filter = `blur(${blur}px)`;
-      g.translate(pad, pad);
-      const half = (fill, side) => {
-        g.fillStyle = fill;
-        g.beginPath();
-        g.moveTo(32, 4);
-        g.lineTo(32 + side * 26, 27);
-        g.lineTo(32, 50);
-        g.closePath();
-        g.fill();
-      };
-      half(left, -1);
-      half(right, 1);
-      g.strokeStyle = 'rgb(70 40 20 / 0.55)';
-      g.lineWidth = 1.3;
-      g.beginPath();
-      g.moveTo(32, 5);
-      g.lineTo(32, 49); // the spine
-      g.moveTo(7, 27);
-      g.quadraticCurveTo(32, 13, 57, 27); // the bow
-      g.stroke();
-      g.fillStyle = left;
-      g.beginPath();
-      g.moveTo(32, 48);
-      g.lineTo(26, 60);
-      g.lineTo(38, 60);
-      g.closePath();
-      g.fill(); // the tail
-      return { canvas: c, pad };
-    }),
-  );
+  // ---------- Chalk dust ----------
+  // A lifter's chalk hanging in the light: soft motes at every distance, drifting up and across. One
+  // soft dot drawn at four focus depths, so drawing many is cheap.
+  const sprites = [0, 1.2, 3.5, 9].map((blur) => {
+    const pad = Math.ceil(blur * 2.5) + 2;
+    const c = document.createElement('canvas');
+    c.width = c.height = 32 + pad * 2;
+    const g = c.getContext('2d');
+    if (blur) g.filter = `blur(${blur}px)`;
+    const glow = g.createRadialGradient(16 + pad, 16 + pad, 0, 16 + pad, 16 + pad, 14);
+    glow.addColorStop(0, 'rgb(255 250 240 / 1)');
+    glow.addColorStop(0.45, 'rgb(250 240 225 / 0.55)');
+    glow.addColorStop(1, 'rgb(250 240 225 / 0)');
+    g.fillStyle = glow;
+    g.beginPath();
+    g.arc(16 + pad, 16 + pad, 14, 0, Math.PI * 2);
+    g.fill();
+    return { canvas: c, pad };
+  });
 
   // Depth z: 0 far away (soft), the middle in focus with the ink, 1 right at the lens (very soft):
   // which drawing to use, and how strongly
-  const focus = (z) => (z < 0.3 ? [1, 0.5] : z < 0.75 ? [0, 0.9] : z < 0.92 ? [2, 0.75] : [3, 0.55]);
+  const focus = (z) => (z < 0.3 ? [1, 0.35] : z < 0.75 ? [0, 0.55] : z < 0.92 ? [2, 0.45] : [3, 0.3]);
 
-  const kites = [];
-  function newKite(anywhere) {
+  const motes = [];
+  function newMote(anywhere) {
     const w = innerWidth;
     const h = innerHeight;
     const scale = Math.max(0.55, Math.min(w, h) / 900);
-    const z = Math.random() ** 1.3; // more far away than near
+    const z = Math.random() ** 1.2;
     return {
       z,
-      look: Math.floor(Math.random() * PAPERS.length),
-      size: (16 + 52 * z ** 1.5) * scale,
-      vx: (5 + 18 * z) * scale,
-      bob: Math.random() * 6.3,
-      bobRate: 0.5 + Math.random() * 0.7,
-      bobAmp: (5 + 16 * z) * scale,
-      sway: Math.random() * 6.3,
-      swayRate: 0.3 + Math.random() * 0.5,
-      tilt: (Math.random() - 0.5) * 0.4,
+      size: (3 + 22 * z ** 2) * scale,
+      vx: (Math.random() - 0.3) * 10 * scale,
+      vy: -(4 + 14 * z) * scale, // chalk rises slowly in the warm air
+      wobble: Math.random() * 6.3,
+      wobbleRate: 0.4 + Math.random() * 0.8,
+      wobbleAmp: (4 + 10 * z) * scale,
       wx: 0,
       wy: 0,
-      // The wind blows left to right, so new kites drift in from the left
-      x: anywhere ? Math.random() * w : -60,
-      y: (anywhere ? Math.random() * 0.8 : 0.05 + Math.random() * 0.6) * h,
+      x: Math.random() * w,
+      y: anywhere ? Math.random() * h : h + 20,
     };
   }
 
   function seedSky() {
-    kites.length = 0;
-    const count = still ? 10 : innerWidth < 700 ? 14 : 24;
-    for (let i = 0; i < count; i++) kites.push(newKite(true));
+    motes.length = 0;
+    const count = still ? 24 : innerWidth < 700 ? 40 : 70;
+    for (let i = 0; i < count; i++) motes.push(newMote(true));
   }
 
-  // On a beat every kite gets a tug on its string and lifts a little
+  // On a beat the dust lifts a little, like chalk off clapped hands
   function surge(strength) {
     const scale = Math.max(0.55, Math.min(innerWidth, innerHeight) / 900);
-    for (const k of kites) {
-      k.wy -= (14 + 30 * k.z) * scale * strength;
-      k.wx += (6 + 10 * k.z) * scale * strength;
-    }
+    for (const m of motes) m.wy -= (10 + 22 * m.z) * scale * strength;
   }
 
   // A gust as a shot lifts away
   function gust() {
     const scale = Math.max(0.55, Math.min(innerWidth, innerHeight) / 900);
-    for (const k of kites) {
-      k.wx += (120 + Math.random() * 200) * scale * (0.4 + k.z);
-      k.wy -= Math.random() * 60 * scale;
+    for (const m of motes) {
+      m.wx += (90 + Math.random() * 150) * scale * (0.4 + m.z);
+      m.wy -= Math.random() * 40 * scale;
     }
   }
 
-  // The pointer stirs the air: kites near it get pushed the way it moves
+  // The pointer stirs the air: dust near it gets pushed the way it moves
   const breeze = { x: 0, y: 0, vx: 0, vy: 0, at: 0, known: false };
   addEventListener('pointermove', (event) => {
     const now = performance.now();
@@ -653,46 +626,32 @@
       g.clearRect(0, 0, w, h);
     }
     const stirring = Math.hypot(breeze.vx, breeze.vy) > 5;
-    for (let i = 0; i < kites.length; i++) {
-      let k = kites[i];
+    for (let i = 0; i < motes.length; i++) {
+      let m = motes[i];
       if (dt) {
-        k.bob += k.bobRate * dt;
-        k.sway += k.swayRate * dt;
+        m.wobble += m.wobbleRate * dt;
         if (stirring) {
-          const reach = 160 + 200 * k.z;
-          const d = Math.hypot(k.x - breeze.x, k.y - breeze.y);
+          const reach = 160 + 200 * m.z;
+          const d = Math.hypot(m.x - breeze.x, m.y - breeze.y);
           if (d < reach) {
-            const shove = (1 - d / reach) * (0.4 + k.z) * dt * 3;
-            k.wx += breeze.vx * shove;
-            k.wy += breeze.vy * shove;
+            const shove = (1 - d / reach) * (0.4 + m.z) * dt * 3;
+            m.wx += breeze.vx * shove;
+            m.wy += breeze.vy * shove;
           }
         }
-        k.wx *= Math.exp(-dt * 1.2);
-        k.wy *= Math.exp(-dt * 1.8);
-        k.x += (k.vx + k.wx) * dt;
-        k.y += k.wy * dt + Math.cos(k.bob) * k.bobAmp * dt;
-        if (k.x > w + k.size * 3 || k.x < -w * 0.5 || k.y < -h * 0.4 || k.y > h * 1.2) k = kites[i] = newKite(false);
+        m.wx *= Math.exp(-dt * 1.2);
+        m.wy *= Math.exp(-dt * 1.6);
+        m.x += (m.vx + m.wx) * dt + Math.cos(m.wobble) * m.wobbleAmp * dt;
+        m.y += (m.vy + m.wy) * dt;
+        if (m.y < -m.size * 2 || m.x < -w * 0.3 || m.x > w * 1.3) m = motes[i] = newMote(false);
       }
-      const [depth, alpha] = focus(k.z);
-      const sprite = sprites[k.look][depth];
-      const front = k.z >= 0.92;
-      const g = front ? frontCtx : backCtx;
-      g.setTransform(dpr, 0, 0, dpr, 0, 0);
-      if (!front) {
-        // its string, curving away down to the flyer
-        g.globalAlpha = alpha * 0.35;
-        g.strokeStyle = '#f6ecdc';
-        g.lineWidth = Math.max(0.6, k.size / 50);
-        g.beginPath();
-        g.moveTo(k.x, k.y);
-        g.quadraticCurveTo(k.x - k.size * 0.6, k.y + k.size * 1.6, k.x - k.size * 1.6, k.y + k.size * 3.2);
-        g.stroke();
-      }
-      g.translate(k.x, k.y);
-      g.rotate(k.tilt + Math.sin(k.sway) * 0.2);
-      g.scale(k.size / 64, k.size / 64);
+      const [depth, alpha] = focus(m.z);
+      const sprite = sprites[depth];
+      const g = m.z >= 0.92 ? frontCtx : backCtx;
+      const s = m.size / 32;
+      g.setTransform(dpr * s, 0, 0, dpr * s, dpr * m.x, dpr * m.y);
       g.globalAlpha = alpha;
-      g.drawImage(sprite.canvas, -32 - sprite.pad, -27 - sprite.pad); // held where the string ties on
+      g.drawImage(sprite.canvas, -16 - sprite.pad, -16 - sprite.pad);
     }
     for (const g of [backCtx, frontCtx]) {
       g.globalAlpha = 1;
