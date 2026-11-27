@@ -1,21 +1,42 @@
 // ---------- RSW coming soon, India: the soundtrack ----------
-// Desi phonk, made in the browser: nothing is downloaded or licensed, every sound is synthesised.
-// It's in Raag Bhairav, the morning raga, on E: a sitar (a Karplus-Strong string through a buzzing
-// bridge, sliding between notes: the meend) over a tanpura drone, and a tabla keeping teentaal.
-// On the drop the phonk comes in under them: an 808 kick and bass, hats with rolls and a half-time
-// clap, with the tabla playing where the cowbell would. A dhol hits on every reveal.
-// ink.js cues it: the tanpura and sitar while RSW is painted, a riser as the brush reaches the W,
-// the drop when RSW lands, and the mix muffling as each shot lifts away. Sound is on from the
-// start; the Sound button mutes it.
+// Made in the browser: nothing is downloaded or licensed, every sound is synthesised. It's in Raag
+// Malkauns on E (Sa ga ma dha ni: E G A C D), a dark, majestic night raga. A bansuri (bamboo flute)
+// leads: one breathing voice that glides between notes (the meend), with vibrato on the long ones,
+// playing the raga's own phrases. A tanpura tuned the Malkauns way (Ma Sa Sa Sa) hums under it and a
+// tabla keeps keherwa, the eight-beat rhythm of Indian film songs. On the drop the phonk comes in: an
+// 808 kick and bass, hats with rolls and a half-time clap, a sitar riff answered by the bansuri. A
+// dhol hits on every reveal.
+// ink.js cues it: tanpura and bansuri while RSW is painted, a riser as the brush reaches the W, the
+// drop when RSW lands, and the mix muffling as each shot lifts away. Sound is on from the start; the
+// Sound button mutes it.
 window.rswSound = (() => {
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   const BPM = 130;
   const STEP = 60 / BPM / 4; // a 16th note, s
-  const SA = 82.41; // Hz: E2, the tonic
-  const BHAIRAV = [0, 1, 4, 5, 7, 8, 11]; // Sa, komal Re, Ga, Ma, Pa, komal Dha, Ni: semitones over Sa
+  const EIGHTH = STEP * 2;
+  const E2 = 82.41; // Hz
+  const MALKAUNS = [0, 3, 5, 8, 10]; // Sa, komal Ga, Ma, komal Dha, komal Ni: semitones over Sa
 
-  // A degree of the raga (0 = Sa, climbing) as a frequency, octaves counted from E2
-  const pitch = (degree, octave) => SA * 2 ** (octave + (BHAIRAV[((degree % 7) + 7) % 7] + 12 * Math.floor(degree / 7)) / 12);
+  // A note of the raga as a frequency: degree 0 is Sa, 1 ga, 2 ma… 5 the Sa above, -1 the ni below;
+  // octaves counted from E2
+  const pitch = (degree, octave) => E2 * 2 ** (octave + (MALKAUNS[((degree % 5) + 5) % 5] + 12 * Math.floor(degree / 5)) / 12);
+
+  // The raga's phrases for the bansuri, two bars each: [degree, length in 8ths, glide in?]
+  const PHRASES = [
+    [[2, 2], [1, 1], [2, 1, 1], [3, 2], [4, 1], [3, 1, 1], [2, 8]], // ma ga ma dha ni dha ma
+    [[5, 3], [4, 1, 1], [3, 2], [2, 2], [1, 1], [2, 1], [1, 2, 1], [0, 4]], // Sa ni dha ma, ga ma ga Sa
+    [[-1, 2], [0, 2, 1], [1, 2], [2, 4], [1, 2, 1], [0, 4]], // ni Sa ga ma ga Sa
+    [[1, 1], [2, 1], [3, 1], [4, 1, 1], [5, 8], [4, 2, 1], [3, 2]], // up to the high Sa, and hold it
+    [[3, 2], [2, 1, 1], [1, 1], [2, 4], [3, 2], [4, 1], [3, 1, 1], [2, 4]], // dha ma ga ma, dha ni dha ma
+  ];
+  // The sitar's riffs for the drop, two bars of 8ths (null is a rest)
+  const RIFFS = [
+    [0, 0, 1, 2, 3, 2, 1, 0, 0, -1, 0, 1, 2, 1, 0, null],
+    [0, null, 0, 1, 2, null, 3, 2, 1, 2, 1, 0, -1, 0, null, null],
+    [2, 2, 3, 4, 5, 4, 3, 2, 1, 2, 1, 0, 0, null, -1, 0],
+  ];
+  // Keherwa: dha ge na ti | na ka dhi na
+  const KEHERWA = ['dha', 'ge', 'na', 'ti', 'na', 'ka', 'dhi', 'na'];
 
   // ---------- The engine ----------
   // Works on a live AudioContext or an OfflineAudioContext (the test renders one)
@@ -35,7 +56,9 @@ window.rswSound = (() => {
     glue.ratio.value = 4;
     glue.attack.value = 0.004;
     glue.release.value = 0.22;
-    master.connect(glue).connect(destination);
+    const trim = ctx.createGain(); // headroom after the compressor: its fast peaks stay clear of clipping
+    trim.gain.value = 0.85;
+    master.connect(glue).connect(trim).connect(destination);
     const muffle = ctx.createBiquadFilter();
     muffle.type = 'lowpass';
     muffle.frequency.value = 18000;
@@ -49,7 +72,7 @@ window.rswSound = (() => {
     // A hall: a convolver with a decaying-noise impulse; instruments send into it
     const hall = ctx.createConvolver();
     hall.buffer = (() => {
-      const length = Math.floor(ctx.sampleRate * 2.4);
+      const length = Math.floor(ctx.sampleRate * 2.8);
       const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
       for (let c = 0; c < 2; c++) {
         const data = buffer.getChannelData(c);
@@ -58,7 +81,7 @@ window.rswSound = (() => {
       return buffer;
     })();
     const hallOut = ctx.createGain();
-    hallOut.gain.value = 0.4;
+    hallOut.gain.value = 0.42;
     hall.connect(hallOut).connect(bus);
     const send = (node, amount) => {
       const g = ctx.createGain();
@@ -124,7 +147,7 @@ window.rswSound = (() => {
     bassTone.type = 'lowpass';
     bassTone.frequency.value = 760;
     const bassLevel = ctx.createGain();
-    bassLevel.gain.value = 0.52;
+    bassLevel.gain.value = 0.5;
     bassIn.connect(bassTone).connect(bassLevel).connect(bus);
     function bass(t, degree, length, slideTo) {
       const o = ctx.createOscillator();
@@ -163,9 +186,71 @@ window.rswSound = (() => {
       send(g, 0.3);
     }
 
+    // ---------- The bansuri ----------
+    // One breathing voice for a whole phrase: a sine with two soft overtones, breath noise following
+    // the pitch, a scoop up into the first note, a small dip of the tongue between notes (or a glide,
+    // the meend) and vibrato that blooms on the long notes. The breath runs out at the end.
+    function bansuri(t, phrase, level = 0.34) {
+      const end = t + phrase.reduce((sum, [, beats]) => sum + beats, 0) * EIGHTH;
+      const voice = ctx.createGain();
+      voice.gain.value = 0;
+      const tone = ctx.createBiquadFilter();
+      tone.type = 'lowpass';
+      tone.frequency.value = 3400;
+      voice.connect(tone).connect(bus);
+      send(tone, 0.5);
+      const pipes = [[1, 1], [2, 0.14], [3, 0.05]].map(([harmonic, amount]) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        g.gain.value = amount;
+        o.connect(g).connect(voice);
+        o.start(t);
+        o.stop(end + 0.5);
+        return { o, harmonic };
+      });
+      const breath = ctx.createBufferSource();
+      breath.buffer = noise;
+      breath.loop = true;
+      const breathBand = ctx.createBiquadFilter();
+      breathBand.type = 'bandpass';
+      breathBand.Q.value = 2.5;
+      const breathLevel = ctx.createGain();
+      breathLevel.gain.value = 0.07;
+      breath.connect(breathBand).connect(breathLevel).connect(voice);
+      breath.start(t, Math.random());
+      breath.stop(end + 0.5);
+      const vibrato = ctx.createOscillator();
+      vibrato.frequency.value = 5.3;
+      const depth = ctx.createGain(); // in cents
+      depth.gain.value = 0;
+      vibrato.connect(depth);
+      for (const { o } of pipes) depth.connect(o.detune);
+      vibrato.start(t);
+      vibrato.stop(end + 0.5);
+
+      let at = t;
+      phrase.forEach(([degree, beats, glide], i) => {
+        const f = pitch(degree, 2); // Sa is E4: a big concert bansuri
+        const length = beats * EIGHTH;
+        for (const { o, harmonic } of pipes) {
+          if (i === 0) o.frequency.setValueAtTime(f * harmonic * 0.96, at); // the scoop up into it
+          o.frequency.setTargetAtTime(f * harmonic, at, glide ? 0.05 : 0.012);
+        }
+        breathBand.frequency.setTargetAtTime(f * 2, at, 0.02);
+        if (i === 0) voice.gain.setTargetAtTime(level, at, 0.04);
+        else if (!glide) {
+          voice.gain.setTargetAtTime(level * 0.5, at, 0.006); // the tongue
+          voice.gain.setTargetAtTime(level, at + 0.03, 0.03);
+        }
+        depth.gain.setTargetAtTime(beats >= 3 ? 16 : 0, at + Math.min(0.3, length * 0.4), 0.15);
+        at += length;
+      });
+      voice.gain.setTargetAtTime(0.0001, end - 0.08, 0.1);
+    }
+
     // ---------- Strings ----------
     // Karplus-Strong: a burst of noise circling a delay line that softens it each pass. `bright` is
-    // how raw the pluck is (a wire, or something warmer), `keep` how slowly the string rings down.
+    // how raw the pluck is, `keep` how slowly the string rings down.
     const strings = new Map();
     function string(frequency, bright, keep, seconds) {
       const rate = ctx.sampleRate;
@@ -194,107 +279,108 @@ window.rswSound = (() => {
       return strings.get(key);
     };
 
-    // The sitar: a bright wire played through the jawari, the flat bridge that makes it buzz. A note
-    // can slide in from the last one (the meend); the sympathetic strings shimmer an octave up.
-    const jawari = shaper(2.4);
-    const sitarTone = ctx.createBiquadFilter();
-    sitarTone.type = 'lowpass';
-    sitarTone.frequency.value = 5200;
-    jawari.connect(sitarTone).connect(bus);
-    send(sitarTone, 0.3);
-    function sitar(t, degree, level = 0.42, from, shimmer = true) {
-      const voice = (deg, lvl, at) => {
-        const { buffer, tune } = cached(`s${deg}`, () => string(pitch(deg, 1), 0.85, 0.4992, 1.8));
+    // The sitar: a bright wire whose tone sweeps down as it rings, the zing of its flat bridge (the
+    // jawari), with the sympathetic strings blooming an octave up a moment after the pluck
+    let lastSitar;
+    function sitar(t, degree, level = 0.3, glide = false) {
+      const ring = (deg, lvl, at, bloom) => {
+        const { buffer, tune } = cached(`s${deg}`, () => string(pitch(deg, 1), 0.9, 0.4993, 1.6)); // Sa is E3
         const source = ctx.createBufferSource();
         source.buffer = buffer;
-        if (from !== undefined && deg === degree) {
-          source.playbackRate.setValueAtTime(tune * (pitch(from, 1) / pitch(deg, 1)), at);
-          source.playbackRate.exponentialRampToValueAtTime(tune, at + 0.13);
-        } else {
-          source.playbackRate.setValueAtTime(tune * 1.01, at);
-          source.playbackRate.exponentialRampToValueAtTime(tune, at + 0.04);
-        }
+        if (glide && lastSitar !== undefined && !bloom) {
+          source.playbackRate.setValueAtTime(tune * (pitch(lastSitar, 1) / pitch(deg, 1)), at);
+          source.playbackRate.exponentialRampToValueAtTime(tune, at + 0.12);
+        } else source.playbackRate.value = tune;
+        const zing = ctx.createBiquadFilter();
+        zing.type = 'peaking';
+        zing.Q.value = 5;
+        zing.gain.value = 12;
+        zing.frequency.setValueAtTime(5600, at);
+        zing.frequency.exponentialRampToValueAtTime(1300, at + 0.7);
         const g = ctx.createGain();
-        g.gain.value = lvl;
-        source.connect(g).connect(jawari);
+        if (bloom) {
+          g.gain.setValueAtTime(0.0001, at);
+          g.gain.exponentialRampToValueAtTime(lvl, at + 0.15);
+          g.gain.exponentialRampToValueAtTime(0.0001, at + 1.4);
+        } else g.gain.value = lvl;
+        source.connect(zing).connect(g).connect(bus);
+        send(g, 0.3);
         source.start(at);
-        source.stop(at + 1.8);
+        source.stop(at + 1.6);
       };
-      voice(degree, level, t);
-      if (shimmer) voice(degree + 7, level * 0.12, t + 0.018);
-      hiss(t, 'highpass', 4200, level * 0.15, 0.01, bus); // the mizrab, the wire pick on the finger
+      ring(degree, level, t, false);
+      ring(degree + 5, level * 0.1, t + 0.02, true);
+      hiss(t, 'highpass', 4500, level * 0.12, 0.01, bus); // the mizrab, the wire pick on the finger
+      lastSitar = degree;
     }
 
-    // The tanpura: four open strings (Pa, Sa, Sa, low Sa) plucked round and round, long and buzzing
-    const tanpuraIn = shaper(3);
-    const tanpuraTone = ctx.createBiquadFilter();
-    tanpuraTone.type = 'lowpass';
-    tanpuraTone.frequency.value = 3000;
+    // The tanpura, tuned for Malkauns: low Ma, Sa, Sa, low Sa, plucked round slowly. Each string's
+    // shimmer is a resonance sweeping slowly down as it rings, not distortion.
     const tanpuraLevel = ctx.createGain();
     tanpuraLevel.gain.value = 0;
-    tanpuraIn.connect(tanpuraTone).connect(tanpuraLevel).connect(bus);
-    send(tanpuraLevel, 0.25);
-    const TANPURA = [[4, 0], [0, 1], [0, 1], [0, 0]]; // [degree, octave]
+    tanpuraLevel.connect(bus);
+    send(tanpuraLevel, 0.3);
+    const TANPURA = [[2, 0], [0, 1], [0, 1], [0, 0]]; // [degree, octave]
     let tanpuraAt = 0;
     let tanpuraString = 0;
     function tanpura(t) {
       const [degree, octave] = TANPURA[tanpuraString++ % 4];
-      const { buffer, tune } = cached(`t${degree}/${octave}`, () => string(pitch(degree, octave), 0.4, 0.49975, 4));
+      const { buffer, tune } = cached(`t${degree}/${octave}`, () => string(pitch(degree, octave), 0.45, 0.49975, 4));
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.playbackRate.value = tune;
-      const g = ctx.createGain();
-      g.gain.value = 0.9;
-      source.connect(g).connect(tanpuraIn);
+      const shimmer = ctx.createBiquadFilter();
+      shimmer.type = 'peaking';
+      shimmer.Q.value = 4;
+      shimmer.gain.value = 10;
+      shimmer.frequency.setValueAtTime(3200, t);
+      shimmer.frequency.exponentialRampToValueAtTime(800, t + 2.5);
+      source.connect(shimmer).connect(tanpuraLevel);
       source.start(t);
       source.stop(t + 4);
     }
     const tanpuraTo = (level, t = now()) => tanpuraLevel.gain.setTargetAtTime(level, t, 0.5);
 
     // ---------- The tabla ----------
-    // The dayan (right drum, tuned to Sa) rings in near-harmonic partials, thanks to its black spot;
-    // the bayan (left) is a bass the palm presses up in pitch: the gumak
+    // The dayan (right drum, tuned to Sa) rings in near-harmonic partials thanks to its black spot,
+    // its pitch settling a hair after the strike; the bayan (left) is a bass the palm presses up in
+    // pitch (the gumak), or a flat slap
     function dayan(t, level, ring) {
-      [[1, 1], [2, 0.5], [3, 0.32], [4, 0.2], [5, 0.12]].forEach(([ratio, amp], i) => {
+      [[1, 1], [2, 0.45], [3, 0.28], [4, 0.16]].forEach(([ratio, amount], i) => {
         const o = ctx.createOscillator();
-        o.frequency.value = pitch(0, 2) * ratio * (1 + (Math.random() - 0.5) * 0.004);
+        const f = pitch(0, 2) * ratio;
+        o.frequency.setValueAtTime(f * 1.025, t);
+        o.frequency.exponentialRampToValueAtTime(f, t + 0.025);
         const g = ctx.createGain();
-        g.gain.setValueAtTime(level * amp, t);
-        g.gain.exponentialRampToValueAtTime(0.0005, t + ring / (1 + i * 0.6));
+        g.gain.setValueAtTime(level * amount, t);
+        g.gain.exponentialRampToValueAtTime(0.0005, t + ring / (1 + i * 0.7));
         o.connect(g).connect(drums);
         o.start(t);
         o.stop(t + ring + 0.05);
       });
-      hiss(t, 'bandpass', 3200, level * 0.35, 0.006); // the finger's snap
+      hiss(t, 'bandpass', 1200, level * 0.3, 0.012, drums, 1.5); // the finger on the skin
     }
     function bayan(t, level) {
       const o = ctx.createOscillator();
-      o.frequency.setValueAtTime(88, t);
-      o.frequency.exponentialRampToValueAtTime(132, t + 0.22);
+      o.frequency.setValueAtTime(80, t);
+      o.frequency.exponentialRampToValueAtTime(124, t + 0.25);
       const g = ctx.createGain();
-      g.gain.setValueAtTime(level * 0.9, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+      g.gain.setValueAtTime(level * 0.85, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
       o.connect(g).connect(drums);
       o.start(t);
-      o.stop(t + 0.6);
-      hiss(t, 'lowpass', 220, level * 0.3, 0.04);
+      o.stop(t + 0.65);
     }
+    const slap = (t, level) => hiss(t, 'lowpass', 500, level * 0.6, 0.035);
     // The bols, the tabla's syllables
     const BOLS = {
-      dha: (t, l) => (dayan(t, l, 0.25), bayan(t, l)),
-      dhin: (t, l) => (dayan(t, l * 0.8, 0.5), bayan(t, l)),
-      tin: (t, l) => dayan(t, l * 0.8, 0.5),
-      ta: (t, l) => dayan(t, l, 0.22),
-      na: (t, l) => dayan(t, l, 0.22),
-      te: (t, l) => dayan(t, l * 0.6, 0.07),
+      dha: (t, l) => (dayan(t, l, 0.3), bayan(t, l)),
+      dhi: (t, l) => (dayan(t, l * 0.8, 0.55), bayan(t, l)),
+      ge: (t, l) => bayan(t, l),
+      na: (t, l) => dayan(t, l, 0.28),
+      ti: (t, l) => dayan(t, l * 0.6, 0.08),
+      ka: (t, l) => slap(t, l),
     };
-    // Teentaal's theka, sixteen beats as 8ths over two bars
-    const THEKA = ['dha', 'dhin', 'dhin', 'dha', 'dha', 'dhin', 'dhin', 'dha', 'dha', 'tin', 'tin', 'ta', 'ta', 'dhin', 'dhin', 'dha'];
-    // In the drop the tabla plays the off-beats where the phonk cowbell would, two bars round
-    const ACCENTS = [
-      { 2: 'na', 3: 'te', 7: 'na', 11: 'tin', 14: 'na', 15: 'te' },
-      { 2: 'na', 3: 'te', 6: 'na', 7: 'na', 11: 'tin', 12: 'te', 13: 'te', 14: 'na', 15: 'ta' },
-    ];
 
     // The dhol: the bass side's boom, then the stick's crack on the other head
     function dhol(t, strength = 1) {
@@ -313,59 +399,26 @@ window.rswSound = (() => {
       send(g, 0.2);
     }
 
-    // ---------- Writing the parts ----------
-    // The sitar's riff for the drop: two bars of 8ths walking the raga around Sa, some notes sliding
-    // in from the one before
-    function makeRiff() {
-      const riff = new Array(32).fill(null);
-      let degree = 7;
-      for (let s = 0; s < 32; s += 2) {
-        if (s % 16 === 14 && Math.random() < 0.5) continue; // a breath at the end of a bar
-        if (s % 8 === 0) degree = Math.random() < 0.6 ? 7 : degree;
-        else degree = Math.max(3, Math.min(11, degree + [-2, -1, 1, 1, 2][Math.floor(Math.random() * 5)]));
-        riff[s] = { degree, slide: Math.random() < 0.3 };
-      }
-      return riff;
-    }
-
-    // The taan: a fast run down to Sa in 16ths, the sitar's answer in the back half of bars 2 and 4
-    const makeTaan = () => {
-      const top = 10 + Math.floor(Math.random() * 3);
-      return Array.from({ length: 8 }, (_, i) => Math.max(7, top - i));
-    };
-
-    // An alaap-like phrase: four bars, a note about every beat, sliding between them, home to Sa
-    function makePhrase() {
-      const phrase = new Array(64).fill(null);
-      let degree = 7;
-      let last;
-      for (let s = 0; s < 64; s += 4) {
-        if (Math.random() < 0.3) continue; // a breath
-        degree = Math.max(2, Math.min(12, degree + [-2, -1, -1, 1, 1, 2][Math.floor(Math.random() * 6)]));
-        phrase[s] = { degree, from: Math.random() < 0.5 ? last : undefined };
-        if (Math.random() < 0.15) phrase[s + 2] = { degree: degree + 1, from: degree }; // up and back: an ornament
-        last = degree;
-      }
-      phrase[56] = { degree: 7, from: last };
-      return phrase;
-    }
-
-    // Four bars: kicks per bar, the 808's notes (Sa Sa komal-Dha Pa: E E C B), where the bass lands
+    // ---------- Putting it together ----------
+    // Four bars: kicks per bar, the 808's notes (Sa Sa komal-Dha komal-Ni: E E C D), where the bass lands
     const KICKS = [[0, 6, 10], [0, 6, 10, 13], [0, 6, 10], [0, 3, 6, 10, 14]];
-    const ROOTS = [0, 0, 5, 4];
+    const ROOTS = [0, 0, 3, 4];
     const BASS = { 0: 6, 6: 4, 10: 6 }; // step: length in steps
 
-    let section = 'intro'; // intro (tanpura and sitar), break (and the tabla's theka), drop (everything)
+    const pick = (list, not) => {
+      const choices = list.filter((item) => item !== not);
+      return choices[Math.floor(Math.random() * choices.length)];
+    };
+
+    let section = 'intro'; // intro (tanpura and bansuri), break (and the tabla), drop (everything)
     let pending = null; // a section change waiting for the next beat
     let next = 0; // the time of the next unscheduled 16th
     let step = 0;
     let bar = 0;
-    let riff = makeRiff();
-    let taan = makeTaan();
-    let phrase = makePhrase();
+    let riff = pick(RIFFS);
+    let phrase = null;
     let rollAt = 12;
     let riser = null;
-    let lastNote;
 
     function play(t) {
       const b = bar;
@@ -383,23 +436,18 @@ window.rswSound = (() => {
         const rolling = (b === 1 || b === 3) && s >= rollAt && s < rollAt + 4;
         if (s === rollAt && (b === 1 || b === 3)) roll(t);
         else if (!rolling && s % 2 === 0) hat(t, s === 14 && b % 2 === 0, s % 4 === 0 ? 0.13 : 0.09);
-        const bol = ACCENTS[b % 2][s];
-        if (bol) BOLS[bol](t, 0.27);
-        // Call and answer: the sitar's riff, then a taan in the back half of bars 2 and 4
-        if (b % 2 === 1 && s >= 8) {
-          sitar(t, taan[s - 8], 0.26, undefined, false);
-        } else {
-          const note = riff[(b % 2) * 16 + s];
-          if (note) {
-            sitar(t, note.degree, 0.36, note.slide ? lastNote : undefined);
-            lastNote = note.degree;
-          }
+        if (s % 2 === 0) BOLS[KEHERWA[s / 2]](t, 0.2); // the tabla keeps keherwa under the beat
+        // Call and answer: the sitar's riff over bars 1-2, the bansuri's phrase over bars 3-4
+        if (b < 2 && s % 2 === 0) {
+          const degree = riff[b * 8 + s / 2];
+          if (degree !== null) sitar(t, degree, 0.3, Math.random() < 0.25);
         }
+        if (b === 2 && s === 0) bansuri(t, (phrase = pick(PHRASES, phrase)), 0.17);
         if (BASS[s]) bass(t, ROOTS[b], BASS[s] * STEP, s === 10 && ROOTS[(b + 1) % 4] !== ROOTS[b] ? ROOTS[(b + 1) % 4] : undefined);
       } else {
-        const note = phrase[b * 16 + s];
-        if (note) sitar(t, note.degree, 0.26, note.from); // softer than the drop, so the drop lands
-        if (section === 'break' && s % 2 === 0) BOLS[THEKA[((b % 2) * 16 + s) / 2]](t, 0.24);
+        // The bansuri sings a phrase every two bars; in a break the tabla plays along
+        if (s === 0 && b % 2 === 0) bansuri(t, (phrase = pick(PHRASES, phrase)), 0.2);
+        if (section === 'break' && s % 2 === 0) BOLS[KEHERWA[s / 2]](t, 0.24);
       }
     }
 
@@ -408,7 +456,7 @@ window.rswSound = (() => {
     function scheduleUntil(until) {
       while (tanpuraAt < until) {
         tanpura(tanpuraAt);
-        tanpuraAt += 0.62;
+        tanpuraAt += 0.9;
       }
       while (next < until) {
         if (pending && step % 4 === 0) {
@@ -421,8 +469,7 @@ window.rswSound = (() => {
         if (step === 0) {
           bar = (bar + 1) % 4;
           if (bar === 0) {
-            phrase = makePhrase();
-            taan = makeTaan();
+            riff = pick(RIFFS, riff);
             rollAt = [12, 8, 12, 4][Math.floor(Math.random() * 4)];
           }
         }
@@ -435,7 +482,7 @@ window.rswSound = (() => {
       step = 0;
       bar = 0;
       section = startSection;
-      tanpuraTo(section === 'drop' ? 0.06 : 0.11, atTime);
+      tanpuraTo(section === 'drop' ? 0.05 : 0.09, atTime);
     }
 
     // After the page was hidden: skip the missed notes instead of playing them all at once
@@ -450,8 +497,9 @@ window.rswSound = (() => {
       if (kind === 'break') {
         pending = (at) => {
           section = 'break';
-          phrase = makePhrase();
-          tanpuraTo(0.11, at);
+          step = 0;
+          bar = 0;
+          tanpuraTo(0.09, at);
         };
       } else if (kind === 'build') {
         // A riser: noise swept up through a band-pass until the drop
@@ -474,10 +522,10 @@ window.rswSound = (() => {
           section = 'drop';
           step = 0;
           bar = 0;
-          riff = makeRiff(); // a new riff every round
-          tanpuraTo(0.06, at);
+          riff = pick(RIFFS, riff); // a new riff every round
+          tanpuraTo(0.05, at);
           hiss(at, 'highpass', 4000, 0.22, 1.6, bus); // the crash
-          for (let i = 0; i < 8; i++) sitar(at + i * 0.022, i + 4, 0.22, undefined, false); // a sweep up into it
+          for (let i = 0; i < 6; i++) sitar(at + i * 0.03, i, 0.2); // a run up the raga into it
           beat('drop', at);
           if (riser) {
             riser.g.gain.cancelScheduledValues(at);
@@ -488,7 +536,7 @@ window.rswSound = (() => {
         };
       } else if (kind === 'hit') {
         const at = next + (step % 2 ? STEP : 0); // on the next 8th
-        dhol(at, 0.85);
+        dhol(at, 0.7);
         beat('hit', at);
       } else if (kind === 'muffle') {
         muffle.frequency.setTargetAtTime(650, now(), 0.25);
@@ -549,7 +597,7 @@ window.rswSound = (() => {
     const painting = where.opening || (where.key === 'rsw' && where.phase === 'paint');
     live.begin(t, painting ? (where.rounds ? 'break' : 'intro') : 'drop');
     live.master.gain.cancelScheduledValues(t);
-    live.master.gain.setTargetAtTime(0.8, t, 0.15);
+    live.master.gain.setTargetAtTime(0.72, t, 0.15); // headroom: the dhol and the 808 together peak high
     clearInterval(timer);
     timer = setInterval(() => live.scheduleUntil(ctx.currentTime + 0.15), 25);
     show();

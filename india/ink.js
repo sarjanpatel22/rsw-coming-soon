@@ -1,10 +1,10 @@
 // ---------- RSW coming soon, India: the movie teaser ----------
-// The same teaser as the main page, made Indian: a cold open, then a run of brush-painted shots that
-// never quite repeats. RSW in sindoor red with a round "ટૂંક સમયમાં" stamp, then શક્તિ in haldi gold,
-// a saffron sun and एक और, in a new order each time round. Words in Gujarati and Hindi can't come
-// from stroke data, so broad brush passes sweep across them and only the word shows where the brush
-// has been. Marigold and rose petals drift through it all; music.js scores it. With reduced motion
-// the finished RSW frame shows at once and stays.
+// The same teaser as the main page, made Indian with Gujarat's own art: a cold open, then a run of
+// brush-painted shots that never quite repeats. RSW in sindoor red, then Warli figures training, a
+// patang with its manja and a gada in brass gold, in a new order each time round. The Warli figures
+// are drawn into a mask and painted in by broad brush passes; the rest is brush strokes. A sky of
+// Uttarayan kites bobs through it all; music.js scores it. With reduced motion the finished RSW frame
+// shows at once and stays.
 (() => {
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const root = document.documentElement;
@@ -16,8 +16,8 @@
   const frontCanvas = $('.petals-front');
   const words = { label: $('.label'), line: $('.line'), small: $('.soon') };
   const ink = document.createElement('canvas'); // the painted shot, before its glow and sheen
-  const mask = document.createElement('canvas'); // a text shot's word in solid colour
-  const reveal = document.createElement('canvas'); // where a text shot's brush has passed
+  const mask = document.createElement('canvas'); // a masked shot's shapes in solid colour
+  const reveal = document.createElement('canvas'); // where a masked shot's brush has passed
   const lerp = (a, b, t) => a + (b - a) * t;
 
   // Seeded random numbers, so a repaint after resizing looks like the first painting
@@ -48,29 +48,112 @@
     { ms: 320, flick: true, at: 1.84, pts: [[0.62, 0.99, 0.2], [0.72, 0.66, 0.45], [0.83, 0.3, 0.42], [0.92, 0.05, 0.3], [0.96, -0.04, 0.06]] },
   ].map(({ at = 0, pts, ...stroke }) => ({ ...stroke, pts: pts.map(([x, y, p]) => [x + at, y, p]) }));
 
-  // The sun: a circle swept once round, then its twelve rays flicked out one by one
-  const SUN = (() => {
-    const ring = [100, 70, 40, 10, -20, -50, -80, -110, -140, -170, -200, -230, -262];
-    const strokes = [
-      {
-        ms: 1200,
-        load: 1.4,
-        pts: ring.map((a, i) => {
-          const t = (a * Math.PI) / 180;
-          const r = 0.3 * (1 + 0.015 * Math.sin(i * 1.7));
-          return [0.5 + r * Math.cos(t), 0.5 - r * Math.sin(t), i === 0 ? 0.6 : i === ring.length - 1 ? 0.5 : 0.95];
-        }),
-      },
+  // The patang (kite): a square of paper on a bamboo spine and bow, a little tail, and the manja, the
+  // string, running away to the flyer
+  const PATANG = [
+    { ms: 260, pts: [[0.16, 0.4, 0.6], [0.33, 0.23, 0.95], [0.5, 0.06, 0.7]] },
+    { ms: 260, pts: [[0.5, 0.06, 0.6], [0.67, 0.23, 0.95], [0.84, 0.4, 0.7]] },
+    { ms: 260, pts: [[0.84, 0.4, 0.6], [0.67, 0.57, 0.95], [0.5, 0.74, 0.7]] },
+    { ms: 260, pts: [[0.5, 0.74, 0.6], [0.33, 0.57, 0.95], [0.16, 0.4, 0.7]] },
+    { ms: 300, pts: [[0.5, 0.09, 0.4], [0.5, 0.4, 0.75], [0.5, 0.72, 0.4]] }, // the spine
+    { ms: 320, pts: [[0.17, 0.4, 0.3], [0.33, 0.3, 0.7], [0.5, 0.27, 0.75], [0.67, 0.3, 0.7], [0.83, 0.4, 0.3]] }, // the bow
+    { ms: 160, pts: [[0.5, 0.74, 0.5], [0.45, 0.8, 0.8], [0.42, 0.87, 0.5]] }, // the tail
+    { ms: 160, pts: [[0.42, 0.87, 0.5], [0.5, 0.86, 0.8], [0.58, 0.87, 0.5]] },
+    { ms: 160, pts: [[0.58, 0.87, 0.5], [0.55, 0.8, 0.8], [0.5, 0.74, 0.5]] },
+    { ms: 700, ink: 'rice', pts: [[0.5, 0.42, 0.25], [0.66, 0.55, 0.3], [0.86, 0.68, 0.3], [1.12, 0.82, 0.25], [1.5, 0.98, 0.15]] }, // the manja
+  ];
+
+  // The gada, the mace of the akhada: a heavy head, a little taller than wide, brushed in rings one
+  // inside the other until it's solid, a spire tapering to a point on top, and a handle with a knob
+  const GADA = (() => {
+    const ring = (r, from, ms) => ({
+      ms,
+      load: 1.4,
+      pts: Array.from({ length: 13 }, (_, k) => {
+        const a = ((from - (370 * k) / 12) * Math.PI) / 180;
+        return [0.5 + r * Math.cos(a), 0.36 - r * 1.12 * Math.sin(a), k === 0 ? 0.6 : k === 12 ? 0.4 : 0.95];
+      }),
+    });
+    return [
+      ring(0.2, 110, 800),
+      ring(0.15, 200, 600),
+      ring(0.1, 290, 450),
+      ring(0.05, 20, 300),
+      { ms: 220, pts: [[0.5, 0.17, 0.8], [0.5, 0.1, 0.6], [0.5, 0.03, 0.15]] }, // the spire
+      { ms: 420, pts: [[0.5, 0.58, 0.7], [0.5, 0.76, 0.85], [0.5, 0.94, 0.8]] }, // the handle
+      { ms: 160, flick: true, pts: [[0.44, 0.95, 0.6], [0.5, 0.96, 0.9], [0.56, 0.95, 0.4]] }, // the knob
     ];
-    for (let k = 0; k < 12; k++) {
-      const t = ((90 - k * 30) * Math.PI) / 180;
-      const ray = (r, p) => [0.5 + r * Math.cos(t), 0.5 - r * Math.sin(t), p];
-      strokes.push({ ms: 120, gap: 40, flick: k % 3 === 0, pts: [ray(0.37, 0.7), ray(0.42, 0.9), ray(0.47, 0.5), ray(0.5, 0.08)] });
-    }
-    return strokes;
   })();
 
-  // A text shot paints a word in an Indian script (see prepareText); its font size is the unit
+  // Warli, the tribal painting of the Gujarat and Maharashtra hills: figures of two triangles, a round
+  // head and stick limbs. Three of them train here: an overhead press, a sprint and a flex. They're
+  // drawn into the mask in solid white, then painted in by two broad brush passes each.
+  const WARLI = [
+    {
+      x: -1.05,
+      limbs: [
+        [[-0.13, 0.21], [-0.27, 0.08], [-0.25, -0.12]], // arms up, pressing
+        [[0.13, 0.21], [0.27, 0.08], [0.25, -0.12]],
+        [[-0.42, -0.13], [0.42, -0.13]], // the bar
+        [[-0.07, 0.65], [-0.18, 0.82], [-0.2, 1], [-0.27, 1]], // legs braced
+        [[0.07, 0.65], [0.18, 0.82], [0.2, 1], [0.27, 1]],
+      ],
+      dots: [[-0.37, -0.13, 0.07], [0.37, -0.13, 0.07]], // the plates
+    },
+    {
+      x: 0,
+      limbs: [
+        [[-0.13, 0.21], [-0.26, 0.33], [-0.35, 0.22]], // the back arm swinging
+        [[0.13, 0.21], [0.28, 0.15], [0.33, 0.01]], // the front arm driving up
+        [[0.07, 0.65], [0.25, 0.74], [0.23, 0.95], [0.3, 0.97]], // the front knee up
+        [[-0.07, 0.65], [-0.2, 0.82], [-0.38, 0.88]], // the back leg pushing off
+      ],
+    },
+    {
+      x: 1.05,
+      limbs: [
+        [[-0.13, 0.21], [-0.33, 0.2], [-0.33, 0.01]], // a double-biceps flex
+        [[0.13, 0.21], [0.33, 0.2], [0.33, 0.01]],
+        [[-0.07, 0.65], [-0.16, 1], [-0.23, 1]],
+        [[0.07, 0.65], [0.16, 1], [0.23, 1]],
+      ],
+      dots: [[-0.33, -0.01, 0.04], [0.33, -0.01, 0.04]], // the fists
+    },
+  ];
+  function drawWarli(g) {
+    const { H } = layout;
+    g.fillStyle = g.strokeStyle = '#fff';
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.lineWidth = 0.05 * H;
+    for (const figure of WARLI) {
+      const at = (u, v) => [layout.x(figure.x + u), layout.y(v)];
+      const path = (points, close) => {
+        g.beginPath();
+        g.moveTo(...at(...points[0]));
+        for (const q of points.slice(1)) g.lineTo(...at(...q));
+        if (close) g.closePath();
+      };
+      const dot = (u, v, r) => {
+        g.beginPath();
+        g.arc(...at(u, v), r * H, 0, Math.PI * 2);
+        g.fill();
+      };
+      dot(0, 0.09, 0.075); // the head
+      path([[-0.14, 0.2], [0.14, 0.2], [0, 0.43]], true); // the chest: a triangle pointing down
+      g.fill();
+      path([[0, 0.43], [-0.13, 0.66], [0.13, 0.66]], true); // the hips: one pointing up
+      g.fill();
+      for (const limb of figure.limbs) {
+        path(limb);
+        g.stroke();
+      }
+      for (const [u, v, r] of figure.dots ?? []) dot(u, v, r);
+    }
+  }
+  // Two broad passes down each figure, its left half then its right
+  const WARLI_PASSES = WARLI.flatMap(({ x }) => [-0.21, 0.21].map((dx) => ({ ms: 360, gap: 60, pts: [[x + dx, -0.26, 0.7], [x + dx * 1.04, 0.4, 1], [x + dx, 1.08, 0.8]] })));
+
   const SHOTS = {
     rsw: {
       strokes: RSW,
@@ -80,88 +163,66 @@
       brush: 0.2,
       gap: 1.6,
       ink: 'sindoor',
-      seal: true,
       hold: 6000,
       label: '',
       line: 'The awakening begins soon.',
-      small: 'Coming soon',
+      small: '<span lang="gu">ટૂંક સમયમાં</span> · Coming soon',
     },
-    shakti: {
-      text: { str: 'શક્તિ', font: 'Shrikhand' },
-      size: (w, h) => Math.min(h * 0.34, w * 0.3),
+    warli: {
+      strokes: WARLI_PASSES,
+      mask: drawWarli,
+      box: { left: -1.5, right: 1.5, top: -0.22, bottom: 1.02 },
+      size: (w, h) => Math.min(h * 0.4, w * 0.3),
       middle: () => 0.42,
-      gap: 0.35,
-      ink: 'haldi',
-      hold: 4500,
-      label: '<span class="k" lang="gu">શક્તિ</span>Shakti',
-      line: 'Power you can trust.',
-      small: 'Lab-tested · Every batch',
-    },
-    surya: {
-      strokes: SUN,
-      box: { left: 0, right: 1, top: 0, bottom: 1 },
-      size: (w, h) => Math.min(h * 0.7, w * 0.86),
-      middle: () => 0.47,
-      brush: 0.075,
-      center: true, // the words sit inside the sun…
-      centerMinHeight: 520, // …unless the screen is too short, then under it
-      copyWidth: 0.48,
-      gap: 0.7,
-      ink: 'saffron',
+      brush: 0.48,
+      gap: 0.3,
+      ink: 'rice',
       hold: 4800,
-      label: '<span class="k" lang="gu">સૂર્ય</span>Surya',
-      line: 'Rise before the sun.',
-      small: 'Discipline · <span lang="gu">શિસ્ત</span>',
+      label: '<span class="k" lang="gu">વારલી</span>Warli',
+      line: 'Find your tribe.',
+      small: 'Warriors · Community',
     },
-    ekaur: {
-      text: { str: 'एक और', font: 'Yatra One' },
-      size: (w, h) => Math.min(h * 0.34, w * 0.26),
+    patang: {
+      strokes: PATANG,
+      box: { left: 0.14, right: 0.86, top: 0.04, bottom: 0.9 },
+      size: (w, h) => Math.min(h * 0.6, w * 0.7),
       middle: () => 0.42,
-      gap: 0.35,
+      brush: 0.035,
+      gap: 2.2,
       ink: 'sindoor',
       hold: 4500,
-      label: '<span class="k" lang="hi">एक और</span>Ek aur',
-      line: 'Ek aur rep.',
-      small: 'One more. Always.',
+      label: '<span class="k" lang="gu">પતંગ</span>Patang',
+      line: 'Fly higher than yesterday.',
+      small: 'Uttarayan · <span lang="gu">અમદાવાદ</span>',
+    },
+    gada: {
+      strokes: GADA,
+      box: { left: 0.28, right: 0.72, top: 0.04, bottom: 0.97 },
+      size: (w, h) => Math.min(h * 0.55, w * 0.6),
+      middle: () => 0.42,
+      brush: 0.075,
+      gap: 1.2,
+      ink: 'haldi',
+      hold: 4500,
+      label: '<span class="k" lang="gu">ગદા</span>Gada',
+      line: 'Strength, the old way.',
+      small: 'Lab-tested · Every batch',
     },
   };
   // When each stroke starts: the brush lifts for a moment between strokes
-  function timeStrokes(shot) {
+  for (const shot of Object.values(SHOTS)) {
     let t = 0;
     for (const stroke of shot.strokes) {
       stroke.start = t;
       t += stroke.ms + (stroke.gap ?? 110);
     }
   }
-  for (const shot of Object.values(SHOTS)) if (shot.strokes) timeStrokes(shot);
 
-  // A word in an Indian script can't be drawn from stroke data, so it's painted the other way round:
-  // three broad brush passes sweep across it, zigzagging down, and only the parts of the word they've
-  // touched show. Its box comes from the font's own measurements (a unit is the font size, the
-  // baseline is at 0), its passes from the box.
-  function prepareText(shot) {
-    const g = document.createElement('canvas').getContext('2d');
-    g.font = `100px "${shot.text.font}"`;
-    const m = g.measureText(shot.text.str);
-    const half = m.width / 200;
-    const top = -m.actualBoundingBoxAscent / 100;
-    const bottom = m.actualBoundingBoxDescent / 100;
-    const band = (bottom - top) / 3;
-    shot.box = { left: -half, right: half, top, bottom };
-    shot.brush = band * 1.45; // the passes overlap, so no gaps show between them
-    shot.strokes = [0, 1, 2].map((i) => {
-      const y = top + band * (i + 0.5);
-      const pts = [-half - 0.08, -half * 0.35, half * 0.35, half + 0.08].map((x, k) => [x, y + (k % 2 ? 0.03 : -0.03), k === 0 ? 0.7 : k === 3 ? 0.55 : 1]);
-      return { ms: Math.round(420 + 120 * half), pts: i % 2 ? pts.reverse() : pts };
-    });
-    timeStrokes(shot);
-  }
-
-  // Hair colours: sindoor red, haldi (turmeric) gold, saffron
+  // Hair colours: sindoor red, haldi (turmeric) gold, rice-paste white
   const INKS = {
     sindoor: (shade) => `rgb(${Math.round(lerp(150, 225, shade))} ${Math.round(lerp(10, 30, shade))} ${Math.round(lerp(22, 40, shade))})`,
     haldi: (shade) => `rgb(${Math.round(lerp(196, 255, shade))} ${Math.round(lerp(128, 196, shade))} ${Math.round(lerp(8, 48, shade))})`,
-    saffron: (shade) => `rgb(${Math.round(lerp(214, 255, shade))} ${Math.round(lerp(78, 136, shade))} ${Math.round(lerp(10, 36, shade))})`,
+    rice: (shade) => `rgb(${Math.round(lerp(214, 250, shade))} ${Math.round(lerp(204, 244, shade))} ${Math.round(lerp(186, 230, shade))})`,
   };
 
   const OPEN = 200; // ms until "presents" fades in
@@ -182,7 +243,7 @@
     // Words inside the art only where there's room for them: the sun's ring is small on a short screen
     const center = Boolean(shot.center) && h >= (shot.centerMinHeight ?? 0);
     const words = center ? 0 : h < 520 ? 64 : 96; // the words' height under the art
-    const tall = (unit) => (box.bottom - box.top + shot.brush) * unit; // the art's height, brush included
+    const tall = (unit) => (box.bottom - box.top + (shot.mask ? 0 : shot.brush)) * unit; // the art's height, brush included (a mask cuts it)
     const below = (unit) => shot.brush * unit * (shot.gap ?? 1) + words;
     let H = shot.size(w, h); // one unit, CSS px
     while (H > 40 && 2 * EDGE + tall(H) + below(H) > h) H *= 0.95;
@@ -194,21 +255,7 @@
 
     set('--cy', `${cy}px`);
     set('--spot-y', `${((cy / h) * 100).toFixed(1)}%`);
-    let copyY = y(box.bottom) + brush * (shot.gap ?? 1);
-    if (shot.seal) {
-      // The seal sits by the W's foot, or tucks under it where the screen is too narrow
-      const seal = Math.max(40, H * 0.2);
-      let sealX = x(box.right) + H * 0.04;
-      let sealY = y(0.62);
-      if (sealX + seal > w - 12) {
-        sealX = x(box.right) - seal;
-        sealY = y(box.bottom) + H * 0.08;
-      }
-      copyY = Math.max(copyY, sealY + seal + 16);
-      set('--seal', `${seal.toFixed(1)}px`);
-      set('--seal-x', `${sealX.toFixed(1)}px`);
-      set('--seal-y', `${sealY.toFixed(1)}px`);
-    }
+    const copyY = y(box.bottom) + brush * (shot.gap ?? 1);
     set('--copy-y', `${(center ? cy : copyY).toFixed(1)}px`);
     if (center) set('--copy-w', `${(H * (shot.copyWidth ?? (h < 520 ? 0.64 : 0.74))).toFixed(1)}px`); // narrower in a small circle, clear of the ink
     else root.style.removeProperty('--copy-w');
@@ -371,7 +418,7 @@
   // RSW, then the others in a new order each time round
   function nextKey() {
     if (!queue.length) {
-      const rest = ['shakti', 'surya', 'ekaur'];
+      const rest = ['warli', 'patang', 'gada'];
       for (let i = rest.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [rest[i], rest[j]] = [rest[j], rest[i]];
@@ -385,14 +432,14 @@
   // returns how far the brush moved, for the sound
   const ease = (t, flick) => (flick ? t ** 1.5 : t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
   function paintTo(time) {
-    const colour = INKS[shot.def.ink];
-    const text = Boolean(shot.def.text);
+    const masked = Boolean(shot.def.mask);
     let moved = 0;
     shot.strokes.forEach((stroke, i) => {
       if (stroke.done || time < stroke.start) return;
+      const colour = INKS[stroke.ink ?? shot.def.ink];
       if (!stroke.painter) {
-        stroke.painter = painter(stroke, shot.seed + i * 101, colour, text ? revealCtx : inkCtx);
-        if (i === 0 && !text) splatter(stroke.painter.first, 0, Math.PI * 2, 9, 0.12, stroke.painter.rand, colour); // the brush lands
+        stroke.painter = painter(stroke, shot.seed + i * 101, colour, masked ? revealCtx : inkCtx);
+        if (i === 0 && !masked) splatter(stroke.painter.first, 0, Math.PI * 2, 9, 0.12, stroke.painter.rand, colour); // the brush lands
         if (shot.key === 'rsw' && i === 4) rswSound.cue('build'); // the brush reaches the W: the music rises
       }
       const t = Math.min(1, (time - stroke.start) / stroke.ms);
@@ -400,11 +447,11 @@
       if (t === 1) {
         stroke.done = true;
         const tip = stroke.painter.last;
-        if (stroke.flick && !text) splatter(tip, Math.atan2(tip.ty, tip.tx), 0.7, 16, 0.32, stroke.painter.rand, colour);
+        if (stroke.flick && !masked) splatter(tip, Math.atan2(tip.ty, tip.tx), 0.7, 16, 0.32, stroke.painter.rand, colour);
       }
     });
-    // A text shot's ink is the brush's passes, cut to the word
-    if (text && moved) {
+    // A masked shot's ink is the brush's passes, cut to its shapes
+    if (masked && moved) {
       inkCtx.clearRect(0, 0, layout.w, layout.h);
       inkCtx.drawImage(reveal, 0, 0, layout.w, layout.h);
       inkCtx.globalCompositeOperation = 'destination-in';
@@ -430,14 +477,10 @@
     shot = { key, def, seed, strokes: def.strokes.map((s) => ({ ...s, painter: null, done: false })), startAt: clock, phase: 'paint', writtenAt: 0, leaveAt: 0, sheenAt: Infinity };
     layout = measure(def);
     inkCtx.clearRect(0, 0, layout.w, layout.h);
-    if (def.text) {
+    if (def.mask) {
       revealCtx.clearRect(0, 0, layout.w, layout.h);
       maskCtx.clearRect(0, 0, layout.w, layout.h);
-      maskCtx.font = `${layout.H}px "${def.text.font}"`;
-      maskCtx.textAlign = 'center';
-      maskCtx.textBaseline = 'alphabetic';
-      maskCtx.fillStyle = '#fff';
-      maskCtx.fillText(def.text.str, layout.x(0), layout.y(0));
+      def.mask(maskCtx);
     }
     glow = null;
     glowLevel = 0;
@@ -447,7 +490,6 @@
     // A clean canvas comes back sharp at once, not fading in from the last shot's smoke
     view.style.transition = 'none';
     root.classList.remove('is-written', 'is-leaving');
-    root.classList.toggle('is-seal', Boolean(def.seal));
     root.classList.toggle('copy-center', layout.center);
     void view.offsetWidth;
     view.style.transition = '';
@@ -492,15 +534,12 @@
     g.globalCompositeOperation = 'source-over';
   }
 
-  // ---------- Marigolds ----------
-  // Marigold petals, orange and yellow, and a few rose petals: each drawn once at four focus depths,
-  // so drawing many is cheap
-  const PETALS = [
-    { share: 0.55, light: '#ffd27a', mid: '#ff9f1c', dark: '#e06400', marigold: true },
-    { share: 0.3, light: '#fff1a8', mid: '#ffc93c', dark: '#e89a00', marigold: true },
-    { share: 0.15, light: '#ff9a9a', mid: '#c8102e', dark: '#6e0012', marigold: false },
-  ];
-  const sprites = PETALS.map((kind) =>
+  // ---------- Kites ----------
+  // Uttarayan over Amdavad: a sky of paper kites at every distance, each in two colours with its
+  // bamboo spine and bow and a little tail, bobbing on its string. Each look is drawn once at four
+  // focus depths, so drawing many is cheap.
+  const PAPERS = [['#d7263d', '#f4d35e'], ['#e0218a', '#fdf0d5'], ['#f77f00', '#2a9d8f'], ['#3a86ff', '#ffbe0b'], ['#fdf0d5', '#c1121f'], ['#06a77d', '#f77f00']];
+  const sprites = PAPERS.map(([left, right]) =>
     [0, 1.2, 3.5, 9].map((blur) => {
       const pad = Math.ceil(blur * 2.5) + 2;
       const c = document.createElement('canvas');
@@ -508,116 +547,90 @@
       const g = c.getContext('2d');
       if (blur) g.filter = `blur(${blur}px)`;
       g.translate(pad, pad);
+      const half = (fill, side) => {
+        g.fillStyle = fill;
+        g.beginPath();
+        g.moveTo(32, 4);
+        g.lineTo(32 + side * 26, 27);
+        g.lineTo(32, 50);
+        g.closePath();
+        g.fill();
+      };
+      half(left, -1);
+      half(right, 1);
+      g.strokeStyle = 'rgb(70 40 20 / 0.55)';
+      g.lineWidth = 1.3;
       g.beginPath();
-      g.moveTo(32, 62);
-      if (kind.marigold) {
-        // a fan of a petal with a ruffled top edge
-        g.bezierCurveTo(14, 52, 6, 30, 8, 16);
-        g.quadraticCurveTo(13, 6, 19, 13);
-        g.quadraticCurveTo(25, 4, 32, 11);
-        g.quadraticCurveTo(39, 4, 45, 13);
-        g.quadraticCurveTo(51, 6, 56, 16);
-        g.bezierCurveTo(58, 30, 50, 52, 32, 62);
-      } else {
-        // a rose petal: round and cupped
-        g.bezierCurveTo(4, 56, 2, 14, 26, 6);
-        g.quadraticCurveTo(32, 3, 38, 6);
-        g.bezierCurveTo(62, 14, 60, 56, 32, 62);
-      }
-      const fill = kind.marigold ? g.createRadialGradient(32, 62, 2, 32, 40, 46) : g.createRadialGradient(32, 30, 2, 32, 36, 34);
-      fill.addColorStop(0, kind.marigold ? kind.dark : kind.light);
-      fill.addColorStop(0.5, kind.mid);
-      fill.addColorStop(1, kind.marigold ? kind.light : kind.dark);
-      g.fillStyle = fill;
-      g.fill();
-      if (kind.marigold) {
-        // faint veins fanning out from the base
-        g.strokeStyle = 'rgb(160 60 0 / 0.25)';
-        g.lineWidth = 1;
-        for (const x of [16, 24, 32, 40, 48]) {
-          g.beginPath();
-          g.moveTo(32, 58);
-          g.quadraticCurveTo((32 + x) / 2, 36, x, 16);
-          g.stroke();
-        }
-      }
+      g.moveTo(32, 5);
+      g.lineTo(32, 49); // the spine
+      g.moveTo(7, 27);
+      g.quadraticCurveTo(32, 13, 57, 27); // the bow
+      g.stroke();
+      g.fillStyle = left;
+      g.beginPath();
+      g.moveTo(32, 48);
+      g.lineTo(26, 60);
+      g.lineTo(38, 60);
+      g.closePath();
+      g.fill(); // the tail
       return { canvas: c, pad };
     }),
   );
-  // A kind of petal, by its share of the mix
-  const pickKind = () => {
-    let r = Math.random();
-    const i = PETALS.findIndex((kind) => (r -= kind.share) < 0);
-    return i < 0 ? PETALS.length - 1 : i;
-  };
 
-  // Depth z: 0 far behind (soft), the middle in focus with the ink, 1 right at the lens (very soft):
+  // Depth z: 0 far away (soft), the middle in focus with the ink, 1 right at the lens (very soft):
   // which drawing to use, and how strongly
-  const focus = (z) => (z < 0.22 ? [1, 0.45] : z < 0.72 ? [0, 0.92] : z < 0.9 ? [2, 0.72] : [3, 0.5]);
+  const focus = (z) => (z < 0.3 ? [1, 0.5] : z < 0.75 ? [0, 0.9] : z < 0.92 ? [2, 0.75] : [3, 0.55]);
 
-  const petals = [];
-  function newPetal(anywhere) {
+  const kites = [];
+  function newKite(anywhere) {
     const w = innerWidth;
     const h = innerHeight;
     const scale = Math.max(0.55, Math.min(w, h) / 900);
-    const z = Math.random();
-    const petal = {
+    const z = Math.random() ** 1.3; // more far away than near
+    return {
       z,
-      kind: pickKind(),
-      size: (13 + 38 * z ** 1.5) * scale,
-      vx: (12 + 46 * z) * scale + 8,
-      vy: (8 + 30 * z) * scale + 4,
+      look: Math.floor(Math.random() * PAPERS.length),
+      size: (16 + 52 * z ** 1.5) * scale,
+      vx: (5 + 18 * z) * scale,
+      bob: Math.random() * 6.3,
+      bobRate: 0.5 + Math.random() * 0.7,
+      bobAmp: (5 + 16 * z) * scale,
       sway: Math.random() * 6.3,
-      swayRate: 0.5 + Math.random() * 0.9,
-      swayAmp: (10 + 30 * z) * scale,
-      rot: Math.random() * 6.3,
-      spin: (Math.random() - 0.5) * 1.4,
-      flip: Math.random() * 6.3,
-      flipRate: 0.8 + Math.random() * 1.8,
+      swayRate: 0.3 + Math.random() * 0.5,
+      tilt: (Math.random() - 0.5) * 0.4,
       wx: 0,
       wy: 0,
+      // The wind blows left to right, so new kites drift in from the left
+      x: anywhere ? Math.random() * w : -60,
+      y: (anywhere ? Math.random() * 0.8 : 0.05 + Math.random() * 0.6) * h,
     };
-    // The breeze blows right and down, so new petals come in from the left or the top
-    if (anywhere) {
-      petal.x = Math.random() * w;
-      petal.y = Math.random() * h;
-    } else if (Math.random() < h / (w + h)) {
-      petal.x = -petal.size * 2;
-      petal.y = Math.random() * h * 0.9;
-    } else {
-      petal.x = Math.random() * w * 0.9;
-      petal.y = -petal.size * 2;
-    }
-    return petal;
   }
 
-  function seedPetals() {
-    petals.length = 0;
-    const count = still ? 14 : innerWidth < 700 ? 26 : 46;
-    for (let i = 0; i < count; i++) petals.push(newPetal(true));
+  function seedSky() {
+    kites.length = 0;
+    const count = still ? 10 : innerWidth < 700 ? 14 : 24;
+    for (let i = 0; i < count; i++) kites.push(newKite(true));
   }
 
-  // On a beat the breeze surges the way it already blows (right and down), so the petals quicken
-  // and keep flowing past the word instead of being pushed away from it
+  // On a beat every kite gets a tug on its string and lifts a little
   function surge(strength) {
     const scale = Math.max(0.55, Math.min(innerWidth, innerHeight) / 900);
-    for (const p of petals) {
-      p.wx += (12 + 26 * p.z) * scale * strength;
-      p.wy += (6 + 10 * p.z) * scale * strength;
+    for (const k of kites) {
+      k.wy -= (14 + 30 * k.z) * scale * strength;
+      k.wx += (6 + 10 * k.z) * scale * strength;
     }
   }
 
   // A gust as a shot lifts away
   function gust() {
     const scale = Math.max(0.55, Math.min(innerWidth, innerHeight) / 900);
-    for (const p of petals) {
-      p.wx += (160 + Math.random() * 260) * scale * (0.4 + p.z);
-      p.wy += (Math.random() - 0.4) * 90 * scale;
-      p.spin += (Math.random() - 0.5) * 3;
+    for (const k of kites) {
+      k.wx += (120 + Math.random() * 200) * scale * (0.4 + k.z);
+      k.wy -= Math.random() * 60 * scale;
     }
   }
 
-  // The pointer stirs the air: petals near it get pushed the way it moves
+  // The pointer stirs the air: kites near it get pushed the way it moves
   const breeze = { x: 0, y: 0, vx: 0, vy: 0, at: 0, known: false };
   addEventListener('pointermove', (event) => {
     const now = performance.now();
@@ -633,48 +646,53 @@
     breeze.known = true;
   }, { passive: true });
 
-  function drawPetals(dt) {
+  function drawSky(dt) {
     const { w, h, dpr } = layout;
     for (const g of [backCtx, frontCtx]) {
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.clearRect(0, 0, w, h);
     }
     const stirring = Math.hypot(breeze.vx, breeze.vy) > 5;
-    for (let i = 0; i < petals.length; i++) {
-      let p = petals[i];
+    for (let i = 0; i < kites.length; i++) {
+      let k = kites[i];
       if (dt) {
-        p.sway += p.swayRate * dt;
-        p.rot += p.spin * dt;
-        p.flip += p.flipRate * dt;
-        p.spin = lerp(p.spin, Math.sign(p.spin) * Math.min(Math.abs(p.spin), 0.7), 1 - Math.exp(-dt)); // a gust's spin settles
+        k.bob += k.bobRate * dt;
+        k.sway += k.swayRate * dt;
         if (stirring) {
-          const reach = 160 + 200 * p.z;
-          const d = Math.hypot(p.x - breeze.x, p.y - breeze.y);
+          const reach = 160 + 200 * k.z;
+          const d = Math.hypot(k.x - breeze.x, k.y - breeze.y);
           if (d < reach) {
-            const shove = (1 - d / reach) * (0.4 + p.z) * dt * 3;
-            p.wx += breeze.vx * shove;
-            p.wy += breeze.vy * shove;
+            const shove = (1 - d / reach) * (0.4 + k.z) * dt * 3;
+            k.wx += breeze.vx * shove;
+            k.wy += breeze.vy * shove;
           }
         }
-        p.wx *= Math.exp(-dt * 1.5);
-        p.wy *= Math.exp(-dt * 1.5);
-        p.x += (p.vx + p.wx) * dt + Math.cos(p.sway) * p.swayAmp * dt;
-        p.y += (p.vy + p.wy) * dt;
-        if (p.x > w + p.size * 2 || p.y > h + p.size * 2 || p.x < -w * 0.5 || p.y < -h * 0.5) p = petals[i] = newPetal(false);
+        k.wx *= Math.exp(-dt * 1.2);
+        k.wy *= Math.exp(-dt * 1.8);
+        k.x += (k.vx + k.wx) * dt;
+        k.y += k.wy * dt + Math.cos(k.bob) * k.bobAmp * dt;
+        if (k.x > w + k.size * 3 || k.x < -w * 0.5 || k.y < -h * 0.4 || k.y > h * 1.2) k = kites[i] = newKite(false);
       }
-      const [depth, alpha] = focus(p.z);
-      const sprite = sprites[p.kind][depth];
-      const g = p.z >= 0.9 ? frontCtx : backCtx;
-      const s = p.size / 64;
+      const [depth, alpha] = focus(k.z);
+      const sprite = sprites[k.look][depth];
+      const front = k.z >= 0.92;
+      const g = front ? frontCtx : backCtx;
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
-      g.translate(p.x, p.y);
-      g.rotate(p.rot);
-      // Tumbling, but never fully edge-on, where a flat petal would blink out. The petal is the same
-      // both ways round, so the turn can fold back on itself without a jump.
-      const turn = Math.abs(Math.cos(p.flip));
-      g.scale(Math.max(0.32, turn) * s, s);
-      g.globalAlpha = alpha * (0.8 + 0.2 * turn); // a turned petal catches a little less light
-      g.drawImage(sprite.canvas, -32 - sprite.pad, -32 - sprite.pad);
+      if (!front) {
+        // its string, curving away down to the flyer
+        g.globalAlpha = alpha * 0.35;
+        g.strokeStyle = '#f6ecdc';
+        g.lineWidth = Math.max(0.6, k.size / 50);
+        g.beginPath();
+        g.moveTo(k.x, k.y);
+        g.quadraticCurveTo(k.x - k.size * 0.6, k.y + k.size * 1.6, k.x - k.size * 1.6, k.y + k.size * 3.2);
+        g.stroke();
+      }
+      g.translate(k.x, k.y);
+      g.rotate(k.tilt + Math.sin(k.sway) * 0.2);
+      g.scale(k.size / 64, k.size / 64);
+      g.globalAlpha = alpha;
+      g.drawImage(sprite.canvas, -32 - sprite.pad, -27 - sprite.pad); // held where the string ties on
     }
     for (const g of [backCtx, frontCtx]) {
       g.globalAlpha = 1;
@@ -733,7 +751,7 @@
       glowLevel = GLOW;
       root.classList.add('is-painting', 'is-done');
       compose();
-      drawPetals(0);
+      drawSky(0);
     }
   }
 
@@ -741,7 +759,7 @@
     const dt = last ? Math.min((now - last) / 1000, 0.05) : 0.016;
     last = now;
     if (!entered) {
-      drawPetals(dt); // blossoms drift behind the gate
+      drawSky(dt); // blossoms drift behind the gate
       requestAnimationFrame(frame);
       return;
     }
@@ -787,7 +805,7 @@
     glowOnBeat.style.opacity = Math.min(0.5, breath * 0.4).toFixed(3);
 
     compose();
-    drawPetals(dt);
+    drawSky(dt);
     requestAnimationFrame(frame);
   }
 
@@ -797,7 +815,7 @@
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       setup();
-      seedPetals();
+      seedSky();
       if (shot) {
         const { key, seed, phase } = shot;
         const keep = { writtenAt: shot.writtenAt, leaveAt: shot.leaveAt, sheenAt: shot.sheenAt };
@@ -814,7 +832,7 @@
       }
       if (still) {
         compose();
-        drawPetals(0);
+        drawSky(0);
       }
     }, 150);
   });
@@ -835,14 +853,11 @@
     enter();
   });
 
-  // Fonts first, so the words don't swap typefaces mid-reveal. The Gujarati and Hindi display fonts
-  // are only drawn on canvas, so nothing on the page asks for them: load them by hand.
-  const canvasFonts = Object.values(SHOTS).filter((shot) => shot.text).map((shot) => document.fonts?.load(`100px "${shot.text.font}"`, shot.text.str));
-  Promise.all([document.fonts?.ready, ...canvasFonts]).catch(() => {}).then(() => {
-    for (const shot of Object.values(SHOTS)) if (shot.text) prepareText(shot);
+  // Fonts first, so the words don't swap typefaces mid-reveal
+  (document.fonts?.ready ?? Promise.resolve()).then(() => {
     setup();
-    seedPetals();
-    if (still) drawPetals(0);
+    seedSky();
+    if (still) drawSky(0);
     else requestAnimationFrame(frame);
     rswSound.autoplay().then((allowed) => {
       if (allowed) {
