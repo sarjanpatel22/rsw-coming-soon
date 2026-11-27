@@ -513,19 +513,13 @@
     for (let i = 0; i < count; i++) petals.push(newPetal(true));
   }
 
-  // On a beat, the petals jump away from the middle of the shot and lift a little
-  function burst(strength) {
+  // On a beat the breeze surges the way it already blows (right and down), so the petals quicken
+  // and keep flowing past the word instead of being pushed away from it
+  function surge(strength) {
     const scale = Math.max(0.55, Math.min(innerWidth, innerHeight) / 900);
-    const cx = innerWidth / 2;
-    const cy = shot ? layout.y((shot.def.box.top + shot.def.box.bottom) / 2) : innerHeight / 2;
     for (const p of petals) {
-      const dx = p.x - cx;
-      const dy = p.y - cy;
-      const d = Math.hypot(dx, dy) || 1;
-      const push = strength * 38 * scale * (0.35 + p.z);
-      p.wx += (dx / d) * push;
-      p.wy += (dy / d) * push - strength * 10 * scale;
-      p.spin += (Math.random() - 0.5) * strength * 0.8;
+      p.wx += (12 + 26 * p.z) * scale * strength;
+      p.wy += (6 + 10 * p.z) * scale * strength;
     }
   }
 
@@ -590,8 +584,11 @@
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.translate(p.x, p.y);
       g.rotate(p.rot);
-      g.scale(Math.cos(p.flip) * s, s); // tumbling: edge-on when the cosine passes zero
-      g.globalAlpha = alpha;
+      // Tumbling, but never fully edge-on, where a flat petal would blink out. The petal is the same
+      // both ways round, so the turn can fold back on itself without a jump.
+      const turn = Math.abs(Math.cos(p.flip));
+      g.scale(Math.max(0.32, turn) * s, s);
+      g.globalAlpha = alpha * (0.8 + 0.2 * turn); // a turned petal catches a little less light
       g.drawImage(sprite.canvas, -32 - sprite.pad, -32 - sprite.pad);
     }
     for (const g of [backCtx, frontCtx]) {
@@ -619,7 +616,8 @@
   let last = 0;
   let opening = true; // the cold open, before the first shot
   let entered = false; // the teaser waits behind the gate until it starts
-  let beat = 0; // how hard the last beat still pulses, fading
+  let beat = 0; // the beat's pull on the light, fading slowly
+  let breath = 0; // the light itself, easing after it
 
   function setup() {
     layout = measure(shot ? shot.def : SHOTS.rsw);
@@ -689,16 +687,17 @@
     if (shot?.phase === 'written' && clock - shot.writtenAt > 2600) root.classList.add('is-done');
     if (glow) glowLevel = Math.min(GLOW, glowLevel + dt * 0.4);
 
-    // The picture moves with the music: on every kick the red light behind the ink flares, the ink
-    // bumps and the petals jump; the drop and the taiko hits push harder
+    // The picture moves with the music, gently: the red light behind the ink breathes with the beat
+    // (it rises over a moment and fades slowly, never flashing) and the breeze surges on each kick;
+    // the drop and the taiko hits surge harder
     for (const kind of rswSound.beats()) {
-      const strength = { kick: 1, clap: 0.45, hit: 1.6, drop: 2.6 }[kind];
-      beat = Math.max(beat, Math.min(1.4, strength));
-      if (kind !== 'clap') burst(strength);
+      if (kind === 'clap') continue;
+      beat = Math.max(beat, kind === 'kick' ? 1 : 1.3);
+      surge(kind === 'kick' ? 1 : 2.5);
     }
-    beat *= Math.exp(-dt * 7);
-    glowOnBeat.style.opacity = Math.min(1, beat * 0.75).toFixed(3);
-    view.style.scale = (1 + 0.009 * beat).toFixed(4);
+    beat *= Math.exp(-dt * 2.2);
+    breath += (beat - breath) * (1 - Math.exp(-dt * 9));
+    glowOnBeat.style.opacity = Math.min(0.5, breath * 0.4).toFixed(3);
 
     compose();
     drawPetals(dt);
