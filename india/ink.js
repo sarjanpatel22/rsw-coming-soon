@@ -1,0 +1,857 @@
+// ---------- RSW coming soon, India: the movie teaser ----------
+// The same teaser as the main page, made Indian: a cold open, then a run of brush-painted shots that
+// never quite repeats. RSW in sindoor red with a round "ટૂંક સમયમાં" stamp, then શક્તિ in haldi gold,
+// a saffron sun and एक और, in a new order each time round. Words in Gujarati and Hindi can't come
+// from stroke data, so broad brush passes sweep across them and only the word shows where the brush
+// has been. Marigold and rose petals drift through it all; music.js scores it. With reduced motion
+// the finished RSW frame shows at once and stays.
+(() => {
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const root = document.documentElement;
+  const $ = (selector) => document.querySelector(selector);
+  const push = $('.push');
+  const view = $('.ink');
+  const glowOnBeat = $('.beat');
+  const backCanvas = $('.petals-back');
+  const frontCanvas = $('.petals-front');
+  const words = { label: $('.label'), line: $('.line'), small: $('.soon') };
+  const ink = document.createElement('canvas'); // the painted shot, before its glow and sheen
+  const mask = document.createElement('canvas'); // a text shot's word in solid colour
+  const reveal = document.createElement('canvas'); // where a text shot's brush has passed
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // Seeded random numbers, so a repaint after resizing looks like the first painting
+  function random(seed) {
+    return () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // ---------- The shots ----------
+  // Strokes are [x, y, pressure] in the shot's own units, ms is how long the brush takes, flick
+  // throws ink off the end and load gives a long stroke more ink. size() is a unit in px, brush
+  // the brush's width in units, gap the space above the words in brush widths.
+  const RSW = [
+    // R
+    { ms: 430, pts: [[0.1, 0, 0.5], [0.12, 0.1, 0.95], [0.11, 0.45, 1], [0.1, 0.8, 0.92], [0.09, 1, 0.55], [0.08, 1.06, 0.12]] },
+    { ms: 540, pts: [[0.12, 0.03, 0.3], [0.3, -0.01, 0.75], [0.52, 0.03, 0.88], [0.66, 0.16, 0.92], [0.64, 0.32, 0.85], [0.5, 0.44, 0.72], [0.3, 0.5, 0.55], [0.18, 0.52, 0.3]] },
+    { ms: 400, flick: true, pts: [[0.26, 0.5, 0.4], [0.38, 0.62, 0.9], [0.52, 0.78, 1], [0.66, 0.94, 0.85], [0.78, 1.03, 0.45], [0.9, 1.06, 0.08]] },
+    // S
+    { ms: 780, flick: true, at: 1.03, pts: [[0.62, 0.12, 0.3], [0.52, 0.03, 0.6], [0.32, 0, 0.8], [0.12, 0.08, 0.86], [0.06, 0.24, 0.9], [0.16, 0.4, 0.95], [0.38, 0.5, 1], [0.56, 0.62, 1], [0.62, 0.78, 0.9], [0.52, 0.94, 0.75], [0.3, 1, 0.58], [0.08, 0.95, 0.38], [0, 0.86, 0.1]] },
+    // W: hard down-strokes, quick dry up-strokes
+    { ms: 360, at: 1.84, pts: [[0, 0, 0.5], [0.06, 0.3, 0.95], [0.14, 0.7, 1], [0.21, 0.97, 0.6], [0.23, 1.02, 0.2]] },
+    { ms: 250, at: 1.84, pts: [[0.21, 0.98, 0.2], [0.28, 0.7, 0.42], [0.36, 0.42, 0.4], [0.43, 0.22, 0.22]] },
+    { ms: 360, at: 1.84, pts: [[0.41, 0.24, 0.45], [0.48, 0.55, 0.95], [0.56, 0.85, 0.95], [0.62, 1, 0.55], [0.64, 1.03, 0.18]] },
+    { ms: 320, flick: true, at: 1.84, pts: [[0.62, 0.99, 0.2], [0.72, 0.66, 0.45], [0.83, 0.3, 0.42], [0.92, 0.05, 0.3], [0.96, -0.04, 0.06]] },
+  ].map(({ at = 0, pts, ...stroke }) => ({ ...stroke, pts: pts.map(([x, y, p]) => [x + at, y, p]) }));
+
+  // The sun: a circle swept once round, then its twelve rays flicked out one by one
+  const SUN = (() => {
+    const ring = [100, 70, 40, 10, -20, -50, -80, -110, -140, -170, -200, -230, -262];
+    const strokes = [
+      {
+        ms: 1200,
+        load: 1.4,
+        pts: ring.map((a, i) => {
+          const t = (a * Math.PI) / 180;
+          const r = 0.3 * (1 + 0.015 * Math.sin(i * 1.7));
+          return [0.5 + r * Math.cos(t), 0.5 - r * Math.sin(t), i === 0 ? 0.6 : i === ring.length - 1 ? 0.5 : 0.95];
+        }),
+      },
+    ];
+    for (let k = 0; k < 12; k++) {
+      const t = ((90 - k * 30) * Math.PI) / 180;
+      const ray = (r, p) => [0.5 + r * Math.cos(t), 0.5 - r * Math.sin(t), p];
+      strokes.push({ ms: 120, gap: 40, flick: k % 3 === 0, pts: [ray(0.37, 0.7), ray(0.42, 0.9), ray(0.47, 0.5), ray(0.5, 0.08)] });
+    }
+    return strokes;
+  })();
+
+  // A text shot paints a word in an Indian script (see prepareText); its font size is the unit
+  const SHOTS = {
+    rsw: {
+      strokes: RSW,
+      box: { left: 0.08, right: 2.8, top: -0.04, bottom: 1.06 },
+      size: (w, h) => Math.min(h * 0.36, w * 0.29),
+      middle: (w, h) => (w < h ? 0.4 : 0.42),
+      brush: 0.2,
+      gap: 1.6,
+      ink: 'sindoor',
+      seal: true,
+      hold: 6000,
+      label: '',
+      line: 'The awakening begins soon.',
+      small: 'Coming soon',
+    },
+    shakti: {
+      text: { str: 'શક્તિ', font: 'Shrikhand' },
+      size: (w, h) => Math.min(h * 0.34, w * 0.3),
+      middle: () => 0.42,
+      gap: 0.35,
+      ink: 'haldi',
+      hold: 4500,
+      label: '<span class="k" lang="gu">શક્તિ</span>Shakti',
+      line: 'Power you can trust.',
+      small: 'Lab-tested · Every batch',
+    },
+    surya: {
+      strokes: SUN,
+      box: { left: 0, right: 1, top: 0, bottom: 1 },
+      size: (w, h) => Math.min(h * 0.7, w * 0.86),
+      middle: () => 0.47,
+      brush: 0.075,
+      center: true, // the words sit inside the sun…
+      centerMinHeight: 520, // …unless the screen is too short, then under it
+      copyWidth: 0.48,
+      gap: 0.7,
+      ink: 'saffron',
+      hold: 4800,
+      label: '<span class="k" lang="gu">સૂર્ય</span>Surya',
+      line: 'Rise before the sun.',
+      small: 'Discipline · <span lang="gu">શિસ્ત</span>',
+    },
+    ekaur: {
+      text: { str: 'एक और', font: 'Yatra One' },
+      size: (w, h) => Math.min(h * 0.34, w * 0.26),
+      middle: () => 0.42,
+      gap: 0.35,
+      ink: 'sindoor',
+      hold: 4500,
+      label: '<span class="k" lang="hi">एक और</span>Ek aur',
+      line: 'Ek aur rep.',
+      small: 'One more. Always.',
+    },
+  };
+  // When each stroke starts: the brush lifts for a moment between strokes
+  function timeStrokes(shot) {
+    let t = 0;
+    for (const stroke of shot.strokes) {
+      stroke.start = t;
+      t += stroke.ms + (stroke.gap ?? 110);
+    }
+  }
+  for (const shot of Object.values(SHOTS)) if (shot.strokes) timeStrokes(shot);
+
+  // A word in an Indian script can't be drawn from stroke data, so it's painted the other way round:
+  // three broad brush passes sweep across it, zigzagging down, and only the parts of the word they've
+  // touched show. Its box comes from the font's own measurements (a unit is the font size, the
+  // baseline is at 0), its passes from the box.
+  function prepareText(shot) {
+    const g = document.createElement('canvas').getContext('2d');
+    g.font = `100px "${shot.text.font}"`;
+    const m = g.measureText(shot.text.str);
+    const half = m.width / 200;
+    const top = -m.actualBoundingBoxAscent / 100;
+    const bottom = m.actualBoundingBoxDescent / 100;
+    const band = (bottom - top) / 3;
+    shot.box = { left: -half, right: half, top, bottom };
+    shot.brush = band * 1.45; // the passes overlap, so no gaps show between them
+    shot.strokes = [0, 1, 2].map((i) => {
+      const y = top + band * (i + 0.5);
+      const pts = [-half - 0.08, -half * 0.35, half * 0.35, half + 0.08].map((x, k) => [x, y + (k % 2 ? 0.03 : -0.03), k === 0 ? 0.7 : k === 3 ? 0.55 : 1]);
+      return { ms: Math.round(420 + 120 * half), pts: i % 2 ? pts.reverse() : pts };
+    });
+    timeStrokes(shot);
+  }
+
+  // Hair colours: sindoor red, haldi (turmeric) gold, saffron
+  const INKS = {
+    sindoor: (shade) => `rgb(${Math.round(lerp(150, 225, shade))} ${Math.round(lerp(10, 30, shade))} ${Math.round(lerp(22, 40, shade))})`,
+    haldi: (shade) => `rgb(${Math.round(lerp(196, 255, shade))} ${Math.round(lerp(128, 196, shade))} ${Math.round(lerp(8, 48, shade))})`,
+    saffron: (shade) => `rgb(${Math.round(lerp(214, 255, shade))} ${Math.round(lerp(78, 136, shade))} ${Math.round(lerp(10, 36, shade))})`,
+  };
+
+  const OPEN = 200; // ms until "presents" fades in
+  const PAINT = 2300; // ms until the brush first touches down
+  const LEAVE = 1300; // ms a shot takes to lift away
+
+  // ---------- Layout ----------
+  let layout, viewCtx, inkCtx, backCtx, frontCtx, maskCtx, revealCtx;
+  const set = (name, value) => root.style.setProperty(name, value);
+
+  // Lays a shot out on this screen. On a short screen (a phone on its side) the art shrinks and
+  // moves up until it and its words fit between the small print at the top and bottom.
+  const EDGE = 56; // px kept clear for the small print, top and bottom
+  function measure(shot) {
+    const w = innerWidth;
+    const h = innerHeight;
+    const { box } = shot;
+    // Words inside the art only where there's room for them: the sun's ring is small on a short screen
+    const center = Boolean(shot.center) && h >= (shot.centerMinHeight ?? 0);
+    const words = center ? 0 : h < 520 ? 64 : 96; // the words' height under the art
+    const tall = (unit) => (box.bottom - box.top + shot.brush) * unit; // the art's height, brush included
+    const below = (unit) => shot.brush * unit * (shot.gap ?? 1) + words;
+    let H = shot.size(w, h); // one unit, CSS px
+    while (H > 40 && 2 * EDGE + tall(H) + below(H) > h) H *= 0.95;
+    let cy = h * shot.middle(w, h);
+    if (!center) cy = Math.max(EDGE + tall(H) / 2, Math.min(cy, h - EDGE - below(H) - tall(H) / 2));
+    const x = (u) => w / 2 + (u - (box.left + box.right) / 2) * H;
+    const y = (v) => cy + (v - (box.top + box.bottom) / 2) * H;
+    const brush = shot.brush * H;
+
+    set('--cy', `${cy}px`);
+    set('--spot-y', `${((cy / h) * 100).toFixed(1)}%`);
+    let copyY = y(box.bottom) + brush * (shot.gap ?? 1);
+    if (shot.seal) {
+      // The seal sits by the W's foot, or tucks under it where the screen is too narrow
+      const seal = Math.max(40, H * 0.2);
+      let sealX = x(box.right) + H * 0.04;
+      let sealY = y(0.62);
+      if (sealX + seal > w - 12) {
+        sealX = x(box.right) - seal;
+        sealY = y(box.bottom) + H * 0.08;
+      }
+      copyY = Math.max(copyY, sealY + seal + 16);
+      set('--seal', `${seal.toFixed(1)}px`);
+      set('--seal-x', `${sealX.toFixed(1)}px`);
+      set('--seal-y', `${sealY.toFixed(1)}px`);
+    }
+    set('--copy-y', `${(center ? cy : copyY).toFixed(1)}px`);
+    if (center) set('--copy-w', `${(H * (shot.copyWidth ?? (h < 520 ? 0.64 : 0.74))).toFixed(1)}px`); // narrower in a small circle, clear of the ink
+    else root.style.removeProperty('--copy-w');
+    return { w, h, H, x, y, brush, center, dpr: Math.min(devicePixelRatio || 1, 2) };
+  }
+
+  function fit(canvas) {
+    canvas.width = Math.round(layout.w * layout.dpr);
+    canvas.height = Math.round(layout.h * layout.dpr);
+    const g = canvas.getContext('2d');
+    g.setTransform(layout.dpr, 0, 0, layout.dpr, 0, 0);
+    return g;
+  }
+
+  // ---------- The brush ----------
+  // A centripetal Catmull-Rom curve through the points, sampled about every pixel, with arc
+  // length, direction and pressure at each sample
+  function catmull(p0, p1, p2, p3, t) {
+    const gap = (a, b) => Math.max(1e-4, Math.sqrt(Math.hypot(b.x - a.x, b.y - a.y)));
+    const t1 = gap(p0, p1);
+    const t2 = t1 + gap(p1, p2);
+    const t3 = t2 + gap(p2, p3);
+    const u = lerp(t1, t2, t);
+    const mix = (a, b, ta, tb) => ({ x: ((tb - u) * a.x + (u - ta) * b.x) / (tb - ta), y: ((tb - u) * a.y + (u - ta) * b.y) / (tb - ta) });
+    const a1 = mix(p0, p1, 0, t1);
+    const a2 = mix(p1, p2, t1, t2);
+    const a3 = mix(p2, p3, t2, t3);
+    return mix(mix(a1, a2, 0, t2), mix(a2, a3, t1, t3), t1, t2);
+  }
+
+  function sample(points) {
+    const P = points.map(([u, v, p]) => ({ x: layout.x(u), y: layout.y(v), p }));
+    const mirror = (a, b) => ({ x: 2 * a.x - b.x, y: 2 * a.y - b.y, p: a.p });
+    const ends = [mirror(P[0], P[1]), ...P, mirror(P[P.length - 1], P[P.length - 2])];
+    const out = [];
+    for (let i = 1; i < ends.length - 2; i++) {
+      const [a, b] = [ends[i], ends[i + 1]];
+      const n = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 1.2));
+      for (let k = 0; k < n; k++) out.push({ ...catmull(ends[i - 1], a, b, ends[i + 2], k / n), p: lerp(a.p, b.p, k / n) });
+    }
+    const tip = P[P.length - 1];
+    out.push({ x: tip.x, y: tip.y, p: tip.p });
+    let s = 0;
+    out.forEach((q, i) => {
+      if (i) s += Math.hypot(q.x - out[i - 1].x, q.y - out[i - 1].y);
+      q.s = s;
+    });
+    out.forEach((q, i) => {
+      const a = out[Math.max(0, i - 3)];
+      const b = out[Math.min(out.length - 1, i + 3)];
+      const d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      q.tx = (b.x - a.x) / d;
+      q.ty = (b.y - a.y) / d;
+    });
+    return { pts: out, length: s };
+  }
+
+  // One stroke of a brush made of hairs. Each hair has its own shade, its own ink that runs out
+  // (the edges first) and its own streakiness: as it dries, or when the brush moves fast, it
+  // skips, which leaves the dry-brush streaks of real calligraphy.
+  function painter(stroke, seed, colour, target = inkCtx) {
+    const rand = random(seed);
+    const width = layout.brush;
+    const { pts, length } = sample(stroke.pts);
+    const count = Math.round(Math.min(150, Math.max(36, width / 1.1)));
+    const hurry = length / stroke.ms / (width / 52); // about 1 for a steady stroke, more when it's quick
+    const reservoir = width * 15 * (stroke.load ?? 1); // px a hair can paint before it's dry
+    const streakLength = width * 1.7;
+    const hairs = Array.from({ length: count }, (_, i) => {
+      const o = (i / (count - 1)) * 2 - 1 + (rand() - 0.5) * (2 / count); // across the brush, -1 to 1
+      const edge = Math.abs(o);
+      // The middle of the brush is a solid wet core; the texture lives at the edges
+      const shade = lerp(0.5, rand(), 0.35 + 0.65 * edge);
+      return {
+        o,
+        width: (width / count) * (2.3 + rand() * 1.1) * (1 - 0.45 * edge),
+        alpha: lerp(0.96, 0.5, edge ** 1.5) * (0.9 + 0.1 * rand()),
+        drain: (0.4 + rand() * 0.7) * (1 + 2.2 * edge * edge),
+        lag: rand() * 0.4 * edge ** 1.5 * width, // the edge hairs touch down a moment late: a rounded start
+        color: colour(shade),
+        streak: Array.from({ length: 97 }, rand),
+        ink: 0.82 + rand() * 0.18,
+        x: 0,
+        y: 0,
+        placed: false,
+      };
+    });
+    let next = 0; // the next sample to paint
+
+    // Paints up to arc length toS and says how far the brush travelled
+    function advance(toS) {
+      const from = next;
+      while (next < pts.length && pts[next].s <= toS) next++;
+      if (next === from) return 0;
+      const g = target;
+      g.lineCap = 'round';
+      g.lineJoin = 'round';
+      for (const hair of hairs) {
+        if (hair.ink <= 0) continue;
+        g.beginPath();
+        let down = false;
+        for (let k = from; k < next; k++) {
+          const q = pts[k];
+          if (q.s < hair.lag) continue;
+          const half = (width * q.p) / 2;
+          const x = q.x - q.ty * hair.o * half;
+          const y = q.y + q.tx * hair.o * half;
+          const f = (q.s / streakLength) % 96;
+          const i0 = Math.floor(f);
+          const wet = lerp(hair.streak[i0], hair.streak[i0 + 1], f - i0) > (1 - hair.ink) * 1.15 + (hurry - 1) * 0.12 - 0.28;
+          if (wet && hair.placed) {
+            if (!down) g.moveTo(hair.x, hair.y);
+            g.lineTo(x, y);
+            down = true;
+          } else {
+            down = false;
+          }
+          if (hair.placed) hair.ink -= (Math.hypot(x - hair.x, y - hair.y) / reservoir) * hair.drain;
+          hair.x = x;
+          hair.y = y;
+          hair.placed = true;
+          if (hair.ink <= 0) break;
+        }
+        g.globalAlpha = hair.alpha * Math.min(1, 0.35 + Math.max(0, hair.ink));
+        g.strokeStyle = hair.color;
+        g.lineWidth = hair.width;
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+      return pts[next - 1].s - (from ? pts[from - 1].s : 0);
+    }
+
+    return { length, advance, first: pts[0], last: pts[pts.length - 1], rand };
+  }
+
+  // Ink flung off the brush: drops thrown along a direction, stretched the way they fly
+  function splatter(at, angle, spread, count, reach, rand, colour) {
+    const g = inkCtx;
+    const unit = layout.brush * 5;
+    for (let k = 0; k < count; k++) {
+      const a = angle + (rand() - 0.5) * spread;
+      const d = unit * reach * (0.15 + rand() * 0.85);
+      const r = unit * (0.003 + rand() ** 2.2 * 0.015);
+      g.globalAlpha = 0.55 + rand() * 0.45;
+      g.fillStyle = colour(0.3 + rand() * 0.7);
+      g.beginPath();
+      g.ellipse(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d, r * (1 + rand() * 1.6), r, a, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.globalAlpha = 1;
+  }
+
+  // ---------- The running shot ----------
+  let shot = null; // { key, def, seed, strokes, startAt, phase, writtenAt, leaveAt, sheenAt }
+  let queue = [];
+  let glow = null;
+  let glowLevel = 0;
+  const GLOW = 0.42; // faint, so it reads as light on wet ink, not neon
+
+  // RSW, then the others in a new order each time round
+  function nextKey() {
+    if (!queue.length) {
+      const rest = ['shakti', 'surya', 'ekaur'];
+      for (let i = rest.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rest[i], rest[j]] = [rest[j], rest[i]];
+      }
+      queue = ['rsw', ...rest];
+    }
+    return queue.shift();
+  }
+
+  // Paint every stroke of the shot that's due by `time` (ms since its brush first touched down);
+  // returns how far the brush moved, for the sound
+  const ease = (t, flick) => (flick ? t ** 1.5 : t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+  function paintTo(time) {
+    const colour = INKS[shot.def.ink];
+    const text = Boolean(shot.def.text);
+    let moved = 0;
+    shot.strokes.forEach((stroke, i) => {
+      if (stroke.done || time < stroke.start) return;
+      if (!stroke.painter) {
+        stroke.painter = painter(stroke, shot.seed + i * 101, colour, text ? revealCtx : inkCtx);
+        if (i === 0 && !text) splatter(stroke.painter.first, 0, Math.PI * 2, 9, 0.12, stroke.painter.rand, colour); // the brush lands
+        if (shot.key === 'rsw' && i === 4) rswSound.cue('build'); // the brush reaches the W: the music rises
+      }
+      const t = Math.min(1, (time - stroke.start) / stroke.ms);
+      moved += stroke.painter.advance(ease(t, stroke.flick) * stroke.painter.length + 0.01);
+      if (t === 1) {
+        stroke.done = true;
+        const tip = stroke.painter.last;
+        if (stroke.flick && !text) splatter(tip, Math.atan2(tip.ty, tip.tx), 0.7, 16, 0.32, stroke.painter.rand, colour);
+      }
+    });
+    // A text shot's ink is the brush's passes, cut to the word
+    if (text && moved) {
+      inkCtx.clearRect(0, 0, layout.w, layout.h);
+      inkCtx.drawImage(reveal, 0, 0, layout.w, layout.h);
+      inkCtx.globalCompositeOperation = 'destination-in';
+      inkCtx.drawImage(mask, 0, 0, layout.w, layout.h);
+      inkCtx.globalCompositeOperation = 'source-over';
+    }
+    return moved;
+  }
+
+  // Once the ink is down it glows a little: a blurred copy drawn underneath
+  function makeGlow() {
+    const c = document.createElement('canvas');
+    c.width = ink.width;
+    c.height = ink.height;
+    const g = c.getContext('2d');
+    g.filter = `blur(${Math.round(layout.brush * 0.45 * layout.dpr)}px)`;
+    g.drawImage(ink, 0, 0);
+    return c;
+  }
+
+  function beginShot(key, seed = Math.floor(Math.random() * 1e9), repaint = false) {
+    const def = SHOTS[key];
+    shot = { key, def, seed, strokes: def.strokes.map((s) => ({ ...s, painter: null, done: false })), startAt: clock, phase: 'paint', writtenAt: 0, leaveAt: 0, sheenAt: Infinity };
+    layout = measure(def);
+    inkCtx.clearRect(0, 0, layout.w, layout.h);
+    if (def.text) {
+      revealCtx.clearRect(0, 0, layout.w, layout.h);
+      maskCtx.clearRect(0, 0, layout.w, layout.h);
+      maskCtx.font = `${layout.H}px "${def.text.font}"`;
+      maskCtx.textAlign = 'center';
+      maskCtx.textBaseline = 'alphabetic';
+      maskCtx.fillStyle = '#fff';
+      maskCtx.fillText(def.text.str, layout.x(0), layout.y(0));
+    }
+    glow = null;
+    glowLevel = 0;
+    words.label.innerHTML = def.label;
+    words.line.textContent = def.line;
+    words.small.innerHTML = def.small;
+    // A clean canvas comes back sharp at once, not fading in from the last shot's smoke
+    view.style.transition = 'none';
+    root.classList.remove('is-written', 'is-leaving');
+    root.classList.toggle('is-seal', Boolean(def.seal));
+    root.classList.toggle('copy-center', layout.center);
+    void view.offsetWidth;
+    view.style.transition = '';
+    if (!repaint) rswSound.cue('paint', key);
+  }
+
+  function written() {
+    shot.phase = 'written';
+    shot.writtenAt = clock;
+    shot.sheenAt = clock + 1200;
+    glow = makeGlow();
+    root.classList.add('is-written');
+    rswSound.cue('written', shot.key);
+  }
+
+  // The visible shot: the ink, a wet sheen sliding across it once, and its glow behind
+  function compose() {
+    const g = viewCtx;
+    const { w, h, H } = layout;
+    g.clearRect(0, 0, w, h);
+    g.drawImage(ink, 0, 0, w, h);
+    const sheen = shot ? (clock - shot.sheenAt) / 1700 : -1;
+    if (sheen >= 0 && sheen <= 1) {
+      const { box } = shot.def;
+      const x = lerp(layout.x(box.left) - H * 0.4, layout.x(box.right) + H * 0.4, sheen);
+      const y = layout.y((box.top + box.bottom) / 2);
+      const band = Math.max(layout.brush * 3.5, 80);
+      const light = g.createLinearGradient(x - band * 0.94, y - band * 0.34, x + band * 0.94, y + band * 0.34);
+      light.addColorStop(0, 'rgb(255 214 196 / 0)');
+      light.addColorStop(0.5, 'rgb(255 214 196 / 0.42)');
+      light.addColorStop(1, 'rgb(255 214 196 / 0)');
+      g.globalCompositeOperation = 'source-atop'; // only where there's ink
+      g.fillStyle = light;
+      g.fillRect(0, 0, w, h);
+    }
+    if (glow && glowLevel > 0) {
+      g.globalCompositeOperation = 'destination-over'; // behind the ink
+      g.globalAlpha = glowLevel;
+      g.drawImage(glow, 0, 0, w, h);
+      g.globalAlpha = 1;
+    }
+    g.globalCompositeOperation = 'source-over';
+  }
+
+  // ---------- Marigolds ----------
+  // Marigold petals, orange and yellow, and a few rose petals: each drawn once at four focus depths,
+  // so drawing many is cheap
+  const PETALS = [
+    { share: 0.55, light: '#ffd27a', mid: '#ff9f1c', dark: '#e06400', marigold: true },
+    { share: 0.3, light: '#fff1a8', mid: '#ffc93c', dark: '#e89a00', marigold: true },
+    { share: 0.15, light: '#ff9a9a', mid: '#c8102e', dark: '#6e0012', marigold: false },
+  ];
+  const sprites = PETALS.map((kind) =>
+    [0, 1.2, 3.5, 9].map((blur) => {
+      const pad = Math.ceil(blur * 2.5) + 2;
+      const c = document.createElement('canvas');
+      c.width = c.height = 64 + pad * 2;
+      const g = c.getContext('2d');
+      if (blur) g.filter = `blur(${blur}px)`;
+      g.translate(pad, pad);
+      g.beginPath();
+      g.moveTo(32, 62);
+      if (kind.marigold) {
+        // a fan of a petal with a ruffled top edge
+        g.bezierCurveTo(14, 52, 6, 30, 8, 16);
+        g.quadraticCurveTo(13, 6, 19, 13);
+        g.quadraticCurveTo(25, 4, 32, 11);
+        g.quadraticCurveTo(39, 4, 45, 13);
+        g.quadraticCurveTo(51, 6, 56, 16);
+        g.bezierCurveTo(58, 30, 50, 52, 32, 62);
+      } else {
+        // a rose petal: round and cupped
+        g.bezierCurveTo(4, 56, 2, 14, 26, 6);
+        g.quadraticCurveTo(32, 3, 38, 6);
+        g.bezierCurveTo(62, 14, 60, 56, 32, 62);
+      }
+      const fill = kind.marigold ? g.createRadialGradient(32, 62, 2, 32, 40, 46) : g.createRadialGradient(32, 30, 2, 32, 36, 34);
+      fill.addColorStop(0, kind.marigold ? kind.dark : kind.light);
+      fill.addColorStop(0.5, kind.mid);
+      fill.addColorStop(1, kind.marigold ? kind.light : kind.dark);
+      g.fillStyle = fill;
+      g.fill();
+      if (kind.marigold) {
+        // faint veins fanning out from the base
+        g.strokeStyle = 'rgb(160 60 0 / 0.25)';
+        g.lineWidth = 1;
+        for (const x of [16, 24, 32, 40, 48]) {
+          g.beginPath();
+          g.moveTo(32, 58);
+          g.quadraticCurveTo((32 + x) / 2, 36, x, 16);
+          g.stroke();
+        }
+      }
+      return { canvas: c, pad };
+    }),
+  );
+  // A kind of petal, by its share of the mix
+  const pickKind = () => {
+    let r = Math.random();
+    const i = PETALS.findIndex((kind) => (r -= kind.share) < 0);
+    return i < 0 ? PETALS.length - 1 : i;
+  };
+
+  // Depth z: 0 far behind (soft), the middle in focus with the ink, 1 right at the lens (very soft):
+  // which drawing to use, and how strongly
+  const focus = (z) => (z < 0.22 ? [1, 0.45] : z < 0.72 ? [0, 0.92] : z < 0.9 ? [2, 0.72] : [3, 0.5]);
+
+  const petals = [];
+  function newPetal(anywhere) {
+    const w = innerWidth;
+    const h = innerHeight;
+    const scale = Math.max(0.55, Math.min(w, h) / 900);
+    const z = Math.random();
+    const petal = {
+      z,
+      kind: pickKind(),
+      size: (13 + 38 * z ** 1.5) * scale,
+      vx: (12 + 46 * z) * scale + 8,
+      vy: (8 + 30 * z) * scale + 4,
+      sway: Math.random() * 6.3,
+      swayRate: 0.5 + Math.random() * 0.9,
+      swayAmp: (10 + 30 * z) * scale,
+      rot: Math.random() * 6.3,
+      spin: (Math.random() - 0.5) * 1.4,
+      flip: Math.random() * 6.3,
+      flipRate: 0.8 + Math.random() * 1.8,
+      wx: 0,
+      wy: 0,
+    };
+    // The breeze blows right and down, so new petals come in from the left or the top
+    if (anywhere) {
+      petal.x = Math.random() * w;
+      petal.y = Math.random() * h;
+    } else if (Math.random() < h / (w + h)) {
+      petal.x = -petal.size * 2;
+      petal.y = Math.random() * h * 0.9;
+    } else {
+      petal.x = Math.random() * w * 0.9;
+      petal.y = -petal.size * 2;
+    }
+    return petal;
+  }
+
+  function seedPetals() {
+    petals.length = 0;
+    const count = still ? 14 : innerWidth < 700 ? 26 : 46;
+    for (let i = 0; i < count; i++) petals.push(newPetal(true));
+  }
+
+  // On a beat the breeze surges the way it already blows (right and down), so the petals quicken
+  // and keep flowing past the word instead of being pushed away from it
+  function surge(strength) {
+    const scale = Math.max(0.55, Math.min(innerWidth, innerHeight) / 900);
+    for (const p of petals) {
+      p.wx += (12 + 26 * p.z) * scale * strength;
+      p.wy += (6 + 10 * p.z) * scale * strength;
+    }
+  }
+
+  // A gust as a shot lifts away
+  function gust() {
+    const scale = Math.max(0.55, Math.min(innerWidth, innerHeight) / 900);
+    for (const p of petals) {
+      p.wx += (160 + Math.random() * 260) * scale * (0.4 + p.z);
+      p.wy += (Math.random() - 0.4) * 90 * scale;
+      p.spin += (Math.random() - 0.5) * 3;
+    }
+  }
+
+  // The pointer stirs the air: petals near it get pushed the way it moves
+  const breeze = { x: 0, y: 0, vx: 0, vy: 0, at: 0, known: false };
+  addEventListener('pointermove', (event) => {
+    const now = performance.now();
+    if (breeze.known) {
+      const dt = Math.max(16, now - breeze.at) / 1000;
+      const clamp = (v) => Math.max(-1500, Math.min(1500, v));
+      breeze.vx = clamp((event.clientX - breeze.x) / dt);
+      breeze.vy = clamp((event.clientY - breeze.y) / dt);
+    }
+    breeze.x = event.clientX;
+    breeze.y = event.clientY;
+    breeze.at = now;
+    breeze.known = true;
+  }, { passive: true });
+
+  function drawPetals(dt) {
+    const { w, h, dpr } = layout;
+    for (const g of [backCtx, frontCtx]) {
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, w, h);
+    }
+    const stirring = Math.hypot(breeze.vx, breeze.vy) > 5;
+    for (let i = 0; i < petals.length; i++) {
+      let p = petals[i];
+      if (dt) {
+        p.sway += p.swayRate * dt;
+        p.rot += p.spin * dt;
+        p.flip += p.flipRate * dt;
+        p.spin = lerp(p.spin, Math.sign(p.spin) * Math.min(Math.abs(p.spin), 0.7), 1 - Math.exp(-dt)); // a gust's spin settles
+        if (stirring) {
+          const reach = 160 + 200 * p.z;
+          const d = Math.hypot(p.x - breeze.x, p.y - breeze.y);
+          if (d < reach) {
+            const shove = (1 - d / reach) * (0.4 + p.z) * dt * 3;
+            p.wx += breeze.vx * shove;
+            p.wy += breeze.vy * shove;
+          }
+        }
+        p.wx *= Math.exp(-dt * 1.5);
+        p.wy *= Math.exp(-dt * 1.5);
+        p.x += (p.vx + p.wx) * dt + Math.cos(p.sway) * p.swayAmp * dt;
+        p.y += (p.vy + p.wy) * dt;
+        if (p.x > w + p.size * 2 || p.y > h + p.size * 2 || p.x < -w * 0.5 || p.y < -h * 0.5) p = petals[i] = newPetal(false);
+      }
+      const [depth, alpha] = focus(p.z);
+      const sprite = sprites[p.kind][depth];
+      const g = p.z >= 0.9 ? frontCtx : backCtx;
+      const s = p.size / 64;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.translate(p.x, p.y);
+      g.rotate(p.rot);
+      // Tumbling, but never fully edge-on, where a flat petal would blink out. The petal is the same
+      // both ways round, so the turn can fold back on itself without a jump.
+      const turn = Math.abs(Math.cos(p.flip));
+      g.scale(Math.max(0.32, turn) * s, s);
+      g.globalAlpha = alpha * (0.8 + 0.2 * turn); // a turned petal catches a little less light
+      g.drawImage(sprite.canvas, -32 - sprite.pad, -32 - sprite.pad);
+    }
+    for (const g of [backCtx, frontCtx]) {
+      g.globalAlpha = 1;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    breeze.vx *= Math.exp(-dt * 6);
+    breeze.vy *= Math.exp(-dt * 6);
+  }
+
+  // ---------- Film grain ----------
+  const tile = document.createElement('canvas');
+  tile.width = tile.height = 180;
+  const tileCtx = tile.getContext('2d');
+  const noise = tileCtx.createImageData(180, 180);
+  for (let i = 0; i < noise.data.length; i += 4) {
+    noise.data[i] = noise.data[i + 1] = noise.data[i + 2] = Math.random() * 255;
+    noise.data[i + 3] = 255;
+  }
+  tileCtx.putImageData(noise, 0, 0);
+  set('--noise', `url(${tile.toDataURL()})`);
+
+  // ---------- The teaser's clock ----------
+  let clock = 0; // ms since the teaser began
+  let last = 0;
+  let opening = true; // the cold open, before the first shot
+  let entered = false; // the teaser waits behind the gate until it starts
+  let beat = 0; // the beat's pull on the light, fading slowly
+  let breath = 0; // the light itself, easing after it
+
+  function setup() {
+    layout = measure(shot ? shot.def : SHOTS.rsw);
+    viewCtx = fit(view);
+    inkCtx = fit(ink);
+    maskCtx = fit(mask);
+    revealCtx = fit(reveal);
+    backCtx = fit(backCanvas);
+    frontCtx = fit(frontCanvas);
+  }
+
+  function begin() {
+    root.classList.remove('is-open', 'is-painting', 'is-written', 'is-leaving');
+    push.style.animation = 'none';
+    void push.offsetWidth; // restart the camera push
+    push.style.animation = '';
+    clock = 0;
+    queue = [];
+    shot = null;
+    opening = !still;
+    rswSound.cue('open');
+    inkCtx.clearRect(0, 0, layout.w, layout.h);
+    glow = null;
+    if (still) {
+      beginShot(nextKey(), 7);
+      paintTo(Infinity);
+      written();
+      glowLevel = GLOW;
+      root.classList.add('is-painting', 'is-done');
+      compose();
+      drawPetals(0);
+    }
+  }
+
+  function frame(now) {
+    const dt = last ? Math.min((now - last) / 1000, 0.05) : 0.016;
+    last = now;
+    if (!entered) {
+      drawPetals(dt); // blossoms drift behind the gate
+      requestAnimationFrame(frame);
+      return;
+    }
+    clock += dt * 1000;
+
+    if (opening) {
+      if (clock >= OPEN) root.classList.add('is-open');
+      if (clock >= PAINT - 300) root.classList.add('is-painting');
+      if (clock >= PAINT) {
+        opening = false;
+        beginShot(nextKey());
+      }
+    } else if (shot.phase === 'paint') {
+      const moved = paintTo(clock - shot.startAt);
+      rswSound.brush(moved / Math.max(dt, 0.008) / (layout.brush * 14));
+      if (shot.strokes.every((stroke) => stroke.done)) {
+        rswSound.brush(0);
+        written();
+      }
+    } else if (shot.phase === 'written' && clock - shot.writtenAt > shot.def.hold) {
+      shot.phase = 'leaving';
+      shot.leaveAt = clock;
+      root.classList.add('is-leaving');
+      rswSound.cue('leave', shot.key);
+      gust();
+    } else if (shot.phase === 'leaving' && clock - shot.leaveAt > LEAVE) {
+      beginShot(nextKey());
+    }
+    // The small print arrives with the first shot's words and stays
+    if (shot?.phase === 'written' && clock - shot.writtenAt > 2600) root.classList.add('is-done');
+    if (glow) glowLevel = Math.min(GLOW, glowLevel + dt * 0.4);
+
+    // The picture moves with the music, gently: the red light behind the ink breathes with the beat
+    // (it rises over a moment and fades slowly, never flashing) and the breeze surges on each kick;
+    // the drop and the taiko hits surge harder
+    for (const kind of rswSound.beats()) {
+      if (kind === 'clap') continue;
+      beat = Math.max(beat, kind === 'kick' ? 1 : 1.3);
+      surge(kind === 'kick' ? 1 : 2.5);
+    }
+    beat *= Math.exp(-dt * 2.2);
+    breath += (beat - breath) * (1 - Math.exp(-dt * 9));
+    glowOnBeat.style.opacity = Math.min(0.5, breath * 0.4).toFixed(3);
+
+    compose();
+    drawPetals(dt);
+    requestAnimationFrame(frame);
+  }
+
+  // A resize repaints the shot at its new size; a half-painted shot starts its brush again
+  let resizeTimer;
+  addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      setup();
+      seedPetals();
+      if (shot) {
+        const { key, seed, phase } = shot;
+        const keep = { writtenAt: shot.writtenAt, leaveAt: shot.leaveAt, sheenAt: shot.sheenAt };
+        const wasLeaving = phase === 'leaving';
+        beginShot(key, seed, true);
+        if (phase !== 'paint') {
+          paintTo(Infinity);
+          Object.assign(shot, keep, { phase });
+          glow = makeGlow();
+          glowLevel = GLOW;
+          root.classList.add('is-written');
+          if (wasLeaving) root.classList.add('is-leaving');
+        }
+      }
+      if (still) {
+        compose();
+        drawPetals(0);
+      }
+    }, 150);
+  });
+
+  $('.replay').addEventListener('click', begin);
+
+  // The gate: sound plays from the start, but most browsers keep a page silent until its first
+  // tap. So unless this one lets it play straight away, "Tap to enter" comes first, and that tap
+  // starts the teaser and the music together.
+  const gate = $('.gate');
+  function enter() {
+    entered = true;
+    root.classList.add('is-entered');
+    begin();
+  }
+  gate.addEventListener('click', () => {
+    rswSound.enable();
+    enter();
+  });
+
+  // Fonts first, so the words don't swap typefaces mid-reveal. The Gujarati and Hindi display fonts
+  // are only drawn on canvas, so nothing on the page asks for them: load them by hand.
+  const canvasFonts = Object.values(SHOTS).filter((shot) => shot.text).map((shot) => document.fonts?.load(`100px "${shot.text.font}"`, shot.text.str));
+  Promise.all([document.fonts?.ready, ...canvasFonts]).catch(() => {}).then(() => {
+    for (const shot of Object.values(SHOTS)) if (shot.text) prepareText(shot);
+    setup();
+    seedPetals();
+    if (still) drawPetals(0);
+    else requestAnimationFrame(frame);
+    rswSound.autoplay().then((allowed) => {
+      if (allowed) {
+        rswSound.enable();
+        enter();
+      } else {
+        gate.hidden = false;
+        gate.focus();
+      }
+    });
+  });
+})();
